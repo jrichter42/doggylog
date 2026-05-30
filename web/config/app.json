@@ -1,0 +1,17 @@
+{
+  "name": "Doggy Log",
+  "timezone": "Europe/Berlin",
+  "show_warnings": true,
+  "auth": {
+    "base_url": "https://doggylog.kimvosen.de",
+    "login_link_ttl_seconds": 600,
+    "initial_admin_username": "admin"
+  },
+  "mail": {
+    "enabled": false,
+    "from_address": "",
+    "from_name": "Doggy Log",
+    "reply_to": "",
+    "login_subject": "Login-Link fuer Doggy Log"
+  }
+}
