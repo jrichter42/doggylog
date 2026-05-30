@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "X:/doggylog",
+			"name": "Webspace"
+		}
+	],
+	"settings": {
+		"powershell.cwd": "doggylog"
+	}
+}
