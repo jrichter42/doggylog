@@ -116,19 +116,20 @@ $configWarnings = array_map(
 
           <form class="save-panel" id="entryForm">
             <input name="measured_at" id="measuredAtInput" type="hidden">
-            <div class="form-grid">
-              <label>
-                Ort
-                <select id="locationInput" name="location">
-                  <option value="home">Zuhause</option>
-                  <option value="school">Schule</option>
-                  <option value="away">Unterwegs</option>
-                </select>
-              </label>
+            <div class="choice-block">
+              <span class="control-title">Ort</span>
+              <div class="location-grid" role="group" aria-label="Ort">
+                <button type="button" class="is-active" data-location="home">Zuhause</button>
+                <button type="button" data-location="school">Schule</button>
+                <button type="button" data-location="away">Unterwegs</button>
+              </div>
+            </div>
+            <div class="context-row">
               <label>
                 Kontext
-                <input id="contextInput" name="context" placeholder="z.B. viel aktiv, Arbeitstag">
+                <select id="contextInput" name="context"></select>
               </label>
+              <button class="icon-button" id="addContextButton" type="button" aria-label="Kontext hinzufügen" title="Kontext hinzufügen">+</button>
             </div>
             <label>
               Freitext

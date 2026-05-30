@@ -25,7 +25,7 @@ final class Storage
             'dog_name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
             'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
             'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
-            'duration_seconds' => ['type' => 'number', 'default' => 30, 'visibility' => 'private'],
+            'duration_seconds' => ['type' => 'number', 'default' => 15, 'visibility' => 'private'],
             'breaths_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],

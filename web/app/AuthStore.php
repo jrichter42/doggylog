@@ -127,6 +127,7 @@ final class AuthStore
                 'permissions' => $permissions,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
                 'credentials' => [],
+                'context_presets' => [],
                 'created_at' => $now,
                 'created_by' => $createdBy,
                 'updated_at' => $now,
@@ -178,6 +179,10 @@ final class AuthStore
                 $user['permissions'] = $this->normalizePermissions($patch['permissions']);
             }
 
+            if (array_key_exists('context_presets', $patch) && is_array($patch['context_presets'])) {
+                $user['context_presets'] = $this->normalizeContextPresets($patch['context_presets']);
+            }
+
             $user['updated_at'] = $this->now();
             $user['updated_by'] = $updatedBy;
             $data['users'][$index] = $user;
@@ -204,6 +209,9 @@ final class AuthStore
         }
         if (array_key_exists('email', $patch)) {
             $allowedPatch['email'] = $patch['email'];
+        }
+        if (array_key_exists('context_presets', $patch)) {
+            $allowedPatch['context_presets'] = is_array($patch['context_presets']) ? $patch['context_presets'] : [];
         }
 
         return $this->updateUser($username, $allowedPatch, $username, true, true);
@@ -1021,6 +1029,7 @@ final class AuthStore
             'updated_at' => $user['updated_at'] ?? null,
             'last_login_at' => $user['last_login_at'] ?? null,
             'needs_setup' => count($user['credentials'] ?? []) === 0,
+            'context_presets' => $this->normalizeContextPresets(is_array($user['context_presets'] ?? null) ? $user['context_presets'] : []),
         ];
     }
 
@@ -1126,6 +1135,29 @@ final class AuthStore
         }
 
         return array_values(array_unique($normalized));
+    }
+
+    /**
+     * @param array<int, mixed> $contexts
+     * @return array<int, string>
+     */
+    private function normalizeContextPresets(array $contexts): array
+    {
+        $normalized = [];
+        foreach ($contexts as $context) {
+            if (!is_string($context)) {
+                continue;
+            }
+
+            $value = trim($context);
+            if ($value === '') {
+                continue;
+            }
+
+            $normalized[] = substr($value, 0, 80);
+        }
+
+        return array_slice(array_values(array_unique($normalized)), 0, 30);
     }
 
     /**

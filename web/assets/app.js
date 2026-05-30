@@ -17,6 +17,8 @@ const state = {
   measureType: 'breath',
   mode: 'resting',
   duration: 15,
+  location: 'home',
+  contextPresets: [],
   measuring: false,
   startedAt: 0,
   timer: null,
@@ -53,8 +55,8 @@ const els = {
   meterCount: $('meterCount'),
   measurementResult: $('measurementResult'),
   measuredAtInput: $('measuredAtInput'),
-  locationInput: $('locationInput'),
   contextInput: $('contextInput'),
+  addContextButton: $('addContextButton'),
   notesInput: $('notesInput'),
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
@@ -190,6 +192,7 @@ async function refresh() {
   renderShell();
   renderMeasurementControls();
   if (state.status.auth?.user) {
+    state.contextPresets = Array.isArray(state.status.auth.user.context_presets) ? state.status.auth.user.context_presets : [];
     await loadDogs();
     await loadEntries();
   }
@@ -246,8 +249,23 @@ function renderMeasurementControls() {
   document.querySelectorAll('[data-duration]').forEach((button) => {
     button.classList.toggle('is-active', Number(button.dataset.duration) === state.duration);
   });
+  document.querySelectorAll('[data-location]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.location === state.location);
+  });
+  renderContextOptions();
 
   updateMeterView();
+}
+
+function renderContextOptions() {
+  const selected = els.contextInput.value;
+  const options = [''].concat(state.contextPresets);
+  els.contextInput.innerHTML = options.map((context) => (
+    `<option value="${escapeHtml(context)}">${escapeHtml(context || 'Ohne Kontext')}</option>`
+  )).join('');
+  if (options.includes(selected)) {
+    els.contextInput.value = selected;
+  }
 }
 
 function resetMeasurement() {
@@ -406,7 +424,7 @@ async function saveEntry(event) {
     measurement_type: state.measureType,
     mode: state.mode,
     duration_seconds: state.duration,
-    location: els.locationInput.value,
+    location: state.location,
     context: els.contextInput.value,
     notes: els.notesInput.value,
   };
@@ -416,7 +434,6 @@ async function saveEntry(event) {
 
   await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
-  els.contextInput.value = '';
   els.notesInput.value = '';
   resetMeasurement();
   updateMeterView();
@@ -485,6 +502,27 @@ document.querySelectorAll('[data-duration]').forEach((button) => {
     renderMeasurementControls();
   });
 });
+document.querySelectorAll('[data-location]').forEach((button) => {
+  button.addEventListener('click', () => {
+    state.location = button.dataset.location;
+    renderMeasurementControls();
+  });
+});
+els.addContextButton.addEventListener('click', () => addContext().catch((error) => setMessage(error.message, true)));
+
+async function addContext() {
+  const value = window.prompt('Neuer Kontext');
+  if (value === null) return;
+  const context = value.trim();
+  if (context === '') return;
+
+  const presets = state.contextPresets.filter((item) => item !== context).concat(context);
+  const result = await api('account-update', { method: 'POST', body: { context_presets: presets } });
+  state.contextPresets = result.user?.context_presets || result.account?.user?.context_presets || presets;
+  if (state.status?.auth?.user) state.status.auth.user.context_presets = state.contextPresets;
+  renderContextOptions();
+  els.contextInput.value = context;
+}
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {
   resetMeasurement();
