@@ -69,17 +69,27 @@ button:active {
 }
 
 .topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: max(0.8rem, env(safe-area-inset-top)) 1rem 0.8rem;
+  display: grid;
+  gap: 0.55rem;
+  padding: max(0.55rem, env(safe-area-inset-top)) 0.85rem 0.65rem;
   border-bottom: 1px solid var(--line);
   background: rgba(15, 18, 24, 0.94);
   position: sticky;
   top: 0;
   z-index: 5;
   backdrop-filter: blur(12px);
+}
+
+.brand-line {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.brand-title {
+  min-width: 0;
 }
 
 h1,
@@ -90,7 +100,8 @@ p {
 
 h1 {
   margin-bottom: 0;
-  font-size: 1.45rem;
+  font-size: 1.05rem;
+  line-height: 1.05;
 }
 
 h2 {
@@ -187,6 +198,49 @@ main {
   gap: 0.45rem;
 }
 
+.brand-title .eyebrow {
+  display: block;
+  margin-bottom: 0.1rem;
+  font-size: 0.62rem;
+}
+
+.version-link {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.connection-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.top-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.top-tab {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  color: var(--ink);
+  display: inline-flex;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.5rem 0.65rem;
+  text-align: center;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
 .big-switch {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -264,6 +318,12 @@ main {
 
 .section-head h2 {
   margin: 0;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .tap-button {
@@ -473,14 +533,8 @@ footer {
 }
 
 @media (max-width: 640px) {
-  .topbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .session {
-    width: 100%;
-    justify-content: space-between;
+  .brand-line {
+    align-items: start;
   }
 
   .form-grid,

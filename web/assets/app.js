@@ -17,6 +17,7 @@ const state = {
   measureType: 'breath',
   mode: 'resting',
   duration: 15,
+  view: window.location.hash === '#records' ? 'records' : 'measure',
   location: 'home',
   contextPresets: [],
   measuring: false,
@@ -32,7 +33,6 @@ const $ = (id) => document.getElementById(id);
 const els = {
   connectionStatus: $('connectionStatus'),
   loginButton: $('loginButton'),
-  logoutButton: $('logoutButton'),
   authScreen: $('authScreen'),
   setupForm: $('setupForm'),
   setupInput: $('setupInput'),
@@ -44,6 +44,8 @@ const els = {
   authMessage: $('authMessage'),
   workspace: $('workspace'),
   accountLink: $('accountLink'),
+  measurementView: $('measurementView'),
+  recordsView: $('recordsView'),
   dogSelect: $('dogSelect'),
   modeButtons: $('modeButtons'),
   meterStage: $('meterStage'),
@@ -63,6 +65,7 @@ const els = {
   saveState: $('saveState'),
   refreshButton: $('refreshButton'),
   entriesList: $('entriesList'),
+  viewTabs: document.querySelectorAll('[data-view-tab]'),
 };
 
 function setMessage(text, isError = false) {
@@ -195,6 +198,7 @@ async function refresh() {
     state.contextPresets = Array.isArray(state.status.auth.user.context_presets) ? state.status.auth.user.context_presets : [];
     await loadDogs();
     await loadEntries();
+    renderView();
   }
 }
 
@@ -208,7 +212,6 @@ function renderShell() {
   els.workspace.hidden = !user;
   els.accountLink.hidden = !user;
   els.loginButton.hidden = Boolean(user);
-  els.logoutButton.hidden = !user;
   els.setupForm.hidden = !setup || Boolean(user);
   els.loginPanel.hidden = Boolean(setup) && !user;
   els.setupInput.value = setup || '';
@@ -221,6 +224,25 @@ function renderShell() {
   } else if (!user && !passkeysAvailable()) {
     setMessage('Passkeys hier nicht verfügbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
   }
+
+  renderView();
+}
+
+function switchView(view, updateHash = true) {
+  state.view = view === 'records' ? 'records' : 'measure';
+  renderView();
+  if (updateHash) {
+    window.history.replaceState({}, document.title, state.view === 'records' ? '#records' : '#measure');
+  }
+}
+
+function renderView() {
+  const records = state.view === 'records';
+  els.measurementView.hidden = records;
+  els.recordsView.hidden = !records;
+  els.viewTabs.forEach((tab) => {
+    tab.classList.toggle('is-active', tab.dataset.viewTab === state.view);
+  });
 }
 
 function renderMeasurementControls() {
@@ -472,12 +494,11 @@ function escapeHtml(value) {
 
 els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => setMessage(error.message, true)));
 els.setupForm.addEventListener('submit', (event) => passkeySetup(event).catch((error) => setMessage(error.message, true)));
-els.logoutButton.addEventListener('click', async () => {
-  await api('auth-logout', { method: 'POST', body: {} });
-  await refresh();
-});
 els.loginButton.addEventListener('click', () => {
   els.authScreen.hidden = false;
+});
+els.viewTabs.forEach((tab) => {
+  tab.addEventListener('click', () => switchView(tab.dataset.viewTab));
 });
 els.loginEmailForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -534,6 +555,7 @@ els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((erro
 }));
 els.refreshButton.addEventListener('click', () => loadEntries().catch((error) => setMessage(error.message, true)));
 renderMeasurementControls();
+switchView(state.view, false);
 
 const params = new URLSearchParams(window.location.search);
 const loginToken = params.get('login');

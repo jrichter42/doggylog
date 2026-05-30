@@ -6,6 +6,7 @@ $app = require __DIR__ . '/app/bootstrap.php';
 \DoggyLog\Http::sendSecurityHeaders();
 
 $config = $app['config'];
+$version = htmlspecialchars((string) $app['version'], ENT_QUOTES, 'UTF-8');
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
 ?>
 <!doctype html>
@@ -19,13 +20,17 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <p class="eyebrow">Konto</p>
-        <h1><?= $appName ?></h1>
+      <div class="brand-line">
+        <div class="brand-title">
+          <span class="eyebrow">Vitalzeichen</span>
+          <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
+        </div>
       </div>
-      <div class="session">
-        <a class="button-link" href="./">Messen</a>
-      </div>
+      <nav class="top-tabs" aria-label="Hauptnavigation">
+        <a class="top-tab" href="./#measure">Messung</a>
+        <a class="top-tab" href="./#records">Verlauf</a>
+        <a class="top-tab is-active" href="account.php">Konto</a>
+      </nav>
     </header>
 
     <main>
@@ -35,7 +40,10 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
         <section class="access-card">
           <div class="section-head">
             <h2>Zugang</h2>
-            <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
+            <div class="section-actions">
+              <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
+              <button class="delete-entry" id="logoutButton" type="button">Logout</button>
+            </div>
           </div>
           <p class="muted">Einmaliger Link für weiteren Passkey dieses Benutzers.</p>
           <p class="setup-link" id="selfSetupResult" hidden></p>

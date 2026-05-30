@@ -10,6 +10,7 @@ const els = {
   message: $('accountMessage'),
   selfSetupButton: $('selfSetupButton'),
   selfSetupResult: $('selfSetupResult'),
+  logoutButton: $('logoutButton'),
   dogCreateForm: $('dogCreateForm'),
   dogList: $('dogList'),
   adminPanel: $('adminPanel'),
@@ -156,6 +157,11 @@ els.selfSetupButton.addEventListener('click', async () => {
   } catch (error) {
     els.selfSetupResult.textContent = error.message;
   }
+});
+
+els.logoutButton.addEventListener('click', async () => {
+  await api('auth-logout', { method: 'POST', body: {} });
+  window.location.href = './';
 });
 
 els.dogCreateForm.addEventListener('submit', async (event) => {

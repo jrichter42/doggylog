@@ -24,16 +24,19 @@ $configWarnings = array_map(
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <p class="eyebrow">Vitalzeichen</p>
-        <h1><?= $appName ?></h1>
+      <div class="brand-line">
+        <div class="brand-title">
+          <span class="eyebrow">Vitalzeichen</span>
+          <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
+        </div>
+        <span class="connection-status" id="connectionStatus">Lädt...</span>
       </div>
-      <div class="session">
-        <span id="connectionStatus">Lädt...</span>
-        <a class="button-link" id="accountLink" href="account.php" hidden>Konto</a>
-        <button id="loginButton" type="button" hidden>Login</button>
-        <button id="logoutButton" type="button" hidden>Logout</button>
-      </div>
+      <nav class="top-tabs" aria-label="Hauptnavigation">
+        <button class="top-tab is-active" type="button" data-view-tab="measure">Messung</button>
+        <button class="top-tab" type="button" data-view-tab="records">Verlauf</button>
+        <a class="top-tab" id="accountLink" href="account.php" hidden>Konto</a>
+        <button class="top-tab" id="loginButton" type="button" hidden>Login</button>
+      </nav>
     </header>
 
     <?php if ($configWarnings !== []): ?>
@@ -72,7 +75,7 @@ $configWarnings = array_map(
       <p class="message" id="authMessage" role="alert" hidden></p>
 
       <section class="workspace" id="workspace" hidden>
-        <section class="measure-card">
+        <section class="measure-card" id="measurementView">
           <div class="dog-row">
             <label>
               Hund
@@ -140,7 +143,7 @@ $configWarnings = array_map(
           </form>
         </section>
 
-        <section class="history">
+        <section class="history" id="recordsView" hidden>
           <div class="section-head">
             <h2>Verlauf</h2>
             <button id="refreshButton" type="button">Aktualisieren</button>
@@ -149,8 +152,6 @@ $configWarnings = array_map(
         </section>
       </section>
     </main>
-
-    <footer><a href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></footer>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>
