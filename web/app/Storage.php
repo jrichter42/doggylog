@@ -14,9 +14,15 @@ final class Storage
     private const FIELD_SCHEMAS = [
         'vitals' => [
             'measured_at' => ['type' => 'datetime-local', 'default' => '', 'visibility' => 'private'],
+            'owner_username' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'dog_name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
+            'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
+            'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
+            'duration_seconds' => ['type' => 'number', 'default' => 30, 'visibility' => 'private'],
             'breaths_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'state' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
+            'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],
+            'context' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
         ],
     ];
@@ -199,6 +205,10 @@ final class Storage
             '_modifiedBy' => $username,
             '_deleted' => false,
         ]);
+        if ($type === 'vitals') {
+            $object['owner_username'] = $username;
+            $object['dog_name'] = trim((string) ($object['dog_name'] ?? '')) !== '' ? trim((string) $object['dog_name']) : 'Mein Hund';
+        }
 
         $this->writeJson($this->objectPath($type, $id), $object);
 
@@ -351,6 +361,43 @@ final class Storage
                 continue;
             }
 
+            if ($field === 'duration_seconds') {
+                $duration = (int) $value;
+                if (!in_array($duration, [15, 30], true)) {
+                    throw new InvalidArgumentException('Measurement duration is invalid.');
+                }
+                $normalized[$field] = $duration;
+                continue;
+            }
+
+            if ($field === 'measurement_type') {
+                $typeValue = trim((string) $value);
+                if (!in_array($typeValue, ['breath', 'pulse'], true)) {
+                    throw new InvalidArgumentException('Measurement type is invalid.');
+                }
+                $normalized[$field] = $typeValue;
+                continue;
+            }
+
+            if ($field === 'mode') {
+                $mode = trim((string) $value);
+                $allowed = ['resting', 'active', 'panting', 'sleeping'];
+                if (!in_array($mode, $allowed, true)) {
+                    throw new InvalidArgumentException('Measurement mode is invalid.');
+                }
+                $normalized[$field] = $mode;
+                continue;
+            }
+
+            if ($field === 'location') {
+                $location = trim((string) $value);
+                if (!in_array($location, ['home', 'school', 'away'], true)) {
+                    throw new InvalidArgumentException('Measurement location is invalid.');
+                }
+                $normalized[$field] = $location;
+                continue;
+            }
+
             $normalized[$field] = trim((string) $value);
         }
 
@@ -499,6 +546,11 @@ final class Storage
             if (($object[$field] ?? null) !== null && $object[$field] !== '') {
                 $parts[] = $label . ' ' . $object[$field];
             }
+        }
+
+        $dog = trim((string) ($object['dog_name'] ?? ''));
+        if ($dog !== '') {
+            array_unshift($parts, $dog);
         }
 
         return $parts === [] ? 'Vitalzeichen' : implode(', ', $parts);

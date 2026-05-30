@@ -17,7 +17,7 @@ $configWarnings = array_map(
 <html lang="de">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <title><?= $appName ?></title>
     <link rel="stylesheet" href="assets/app.css">
@@ -25,7 +25,7 @@ $configWarnings = array_map(
   <body>
     <header class="topbar">
       <div>
-        <p class="eyebrow">Vitalzeichen-Logbuch</p>
+        <p class="eyebrow">Vitalzeichen</p>
         <h1><?= $appName ?></h1>
       </div>
       <div class="session">
@@ -48,11 +48,11 @@ $configWarnings = array_map(
       <section class="auth-card" id="authScreen" hidden>
         <div id="loginPanel">
           <h2>Einloggen</h2>
-          <p>Doggy Log nutzt Passkeys. Optional kann ein Login-Link per E-Mail aktiviert werden.</p>
+          <p>Passkey nutzen. Optional Email-Link, wenn konfiguriert.</p>
           <button class="primary" id="passkeyLoginButton" type="button">Mit Passkey einloggen</button>
           <form id="loginEmailForm" hidden>
             <label>
-              E-Mail
+              Email
               <input id="loginEmailInput" name="email" type="email" autocomplete="email">
             </label>
             <button type="submit">Login-Link senden</button>
@@ -62,7 +62,7 @@ $configWarnings = array_map(
 
         <form id="setupForm" hidden>
           <h2>Passkey einrichten</h2>
-          <p>Dieser einmalige Setup-Link erstellt den ersten Zugang.</p>
+          <p>Einmaliger Setup-Link.</p>
           <input id="setupInput" name="setup" type="hidden">
           <button class="primary" type="submit">Passkey erstellen</button>
         </form>
@@ -71,71 +71,71 @@ $configWarnings = array_map(
       <p class="message" id="authMessage" role="alert" hidden></p>
 
       <section class="workspace" id="workspace" hidden>
-        <section class="meter-grid">
-          <article class="meter-card">
-            <div class="card-head">
-              <h2>Atemfrequenz</h2>
-              <span>Atemzuege/min</span>
-            </div>
-            <output class="big-number" id="breathRate">--</output>
-            <div class="segmented" role="group" aria-label="Messdauer">
-              <button type="button" data-breath-window="15">15 s</button>
-              <button type="button" data-breath-window="30" class="is-active">30 s</button>
-              <button type="button" data-breath-window="60">60 s</button>
-            </div>
-            <button class="tap-button" id="breathTapButton" type="button">Atemzug tippen</button>
-            <p class="muted" id="breathHelp">Tippe jeden Atemzug waehrend dein Hund ruhig liegt.</p>
-          </article>
-
-          <article class="meter-card">
-            <div class="card-head">
-              <h2>Puls</h2>
-              <span>Schlaege/min</span>
-            </div>
-            <output class="big-number" id="pulseRate">--</output>
-            <div class="segmented" role="group" aria-label="Puls Messdauer">
-              <button type="button" data-pulse-window="15">15 s</button>
-              <button type="button" data-pulse-window="30" class="is-active">30 s</button>
-              <button type="button" data-pulse-window="60">60 s</button>
-            </div>
-            <button class="tap-button pulse" id="pulseTapButton" type="button">Puls tippen</button>
-            <p class="muted" id="pulseHelp">Tippe jeden gefuehlten Herzschlag oder trage den Wert direkt ein.</p>
-          </article>
-        </section>
-
-        <form class="entry-form" id="entryForm">
-          <h2>Eintrag speichern</h2>
-          <div class="form-grid">
+        <section class="measure-card">
+          <div class="dog-row">
             <label>
-              Zeitpunkt
-              <input name="measured_at" id="measuredAtInput" type="datetime-local" required>
-            </label>
-            <label>
-              Atemfrequenz
-              <input name="breaths_per_minute" id="breathInput" type="number" min="0" max="400" step="0.1" inputmode="decimal">
-            </label>
-            <label>
-              Puls
-              <input name="pulse_per_minute" id="pulseInput" type="number" min="0" max="400" step="0.1" inputmode="decimal">
-            </label>
-            <label>
-              Zustand
-              <select name="state" id="stateInput">
-                <option value="resting">Ruhe</option>
-                <option value="sleeping">Schlaf</option>
-                <option value="after_walk">Nach Spaziergang</option>
-                <option value="excited">Aufgeregt</option>
-                <option value="other">Sonstiges</option>
-              </select>
+              Hund
+              <input id="dogNameInput" autocomplete="off" value="Mein Hund">
             </label>
           </div>
-          <label>
-            Notizen
-            <textarea name="notes" id="notesInput" rows="3"></textarea>
-          </label>
-          <button class="primary" type="submit">Speichern</button>
-          <p id="saveState" class="muted" hidden></p>
-        </form>
+
+          <div class="choice-block">
+            <span class="control-title">Was messen?</span>
+            <div class="big-switch" role="group" aria-label="Messart">
+              <button type="button" class="is-active" data-measure-type="breath">Atemfrequenz</button>
+              <button type="button" data-measure-type="pulse">Puls</button>
+            </div>
+          </div>
+
+          <div class="choice-block">
+            <span class="control-title">Modus</span>
+            <div class="mode-grid" id="modeButtons" role="group" aria-label="Messmodus"></div>
+          </div>
+
+          <div class="choice-block">
+            <span class="control-title">Dauer</span>
+            <div class="segmented" role="group" aria-label="Messdauer">
+              <button type="button" data-duration="15">15 Sekunden</button>
+              <button type="button" data-duration="30" class="is-active">30 Sekunden</button>
+            </div>
+          </div>
+
+          <div class="meter-stage" id="meterStage">
+            <div class="meter-meta">
+              <span id="meterStatus">Bereit</span>
+              <span id="meterCount">0 Taps</span>
+            </div>
+            <button class="tap-button" id="tapButton" type="button">
+              <span id="tapButtonMain">Messung starten</span>
+              <small id="tapButtonSub">Erster Tap startet Timer</small>
+            </button>
+            <output class="result" id="measurementResult">-- / min</output>
+          </div>
+
+          <form class="save-panel" id="entryForm">
+            <input name="measured_at" id="measuredAtInput" type="hidden">
+            <div class="form-grid">
+              <label>
+                Ort
+                <select id="locationInput" name="location">
+                  <option value="home">Zuhause</option>
+                  <option value="school">Schule</option>
+                  <option value="away">Unterwegs</option>
+                </select>
+              </label>
+              <label>
+                Kontext
+                <input id="contextInput" name="context" placeholder="z.B. viel aktiv, Arbeitstag">
+              </label>
+            </div>
+            <label>
+              Freitext
+              <textarea id="notesInput" name="notes" rows="3" placeholder="Optional"></textarea>
+            </label>
+            <button class="primary" id="saveButton" type="submit" disabled>Messung speichern</button>
+            <p id="saveState" class="muted" hidden></p>
+          </form>
+        </section>
 
         <section class="history">
           <div class="section-head">

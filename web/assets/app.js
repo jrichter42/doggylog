@@ -1,8 +1,28 @@
+const modes = {
+  breath: [
+    ['resting', 'Ruhend'],
+    ['active', 'Aktivitaet'],
+    ['panting', 'Hechelnd'],
+    ['sleeping', 'Schlafend'],
+  ],
+  pulse: [
+    ['resting', 'Ruhepuls'],
+    ['active', 'Aktivitaetspuls'],
+  ],
+};
+
 const state = {
   status: null,
   entries: [],
-  breath: { count: 0, startedAt: 0, window: 30 },
-  pulse: { count: 0, startedAt: 0, window: 30 },
+  measureType: 'breath',
+  mode: 'resting',
+  duration: 30,
+  measuring: false,
+  startedAt: 0,
+  timer: null,
+  finishTimer: null,
+  taps: 0,
+  result: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -21,16 +41,20 @@ const els = {
   loginEmailState: $('loginEmailState'),
   authMessage: $('authMessage'),
   workspace: $('workspace'),
-  breathRate: $('breathRate'),
-  pulseRate: $('pulseRate'),
-  breathTapButton: $('breathTapButton'),
-  pulseTapButton: $('pulseTapButton'),
-  breathInput: $('breathInput'),
-  pulseInput: $('pulseInput'),
+  dogNameInput: $('dogNameInput'),
+  modeButtons: $('modeButtons'),
+  tapButton: $('tapButton'),
+  tapButtonMain: $('tapButtonMain'),
+  tapButtonSub: $('tapButtonSub'),
+  meterStatus: $('meterStatus'),
+  meterCount: $('meterCount'),
+  measurementResult: $('measurementResult'),
   measuredAtInput: $('measuredAtInput'),
-  stateInput: $('stateInput'),
+  locationInput: $('locationInput'),
+  contextInput: $('contextInput'),
   notesInput: $('notesInput'),
   entryForm: $('entryForm'),
+  saveButton: $('saveButton'),
   saveState: $('saveState'),
   refreshButton: $('refreshButton'),
   entriesList: $('entriesList'),
@@ -59,10 +83,7 @@ function passkeysAvailable() {
 }
 
 function requirePasskeys() {
-  if (passkeysAvailable()) {
-    return;
-  }
-
+  if (passkeysAvailable()) return;
   const reason = window.isSecureContext !== true
     ? 'Passkeys brauchen HTTPS oder localhost.'
     : 'Dieser Browser unterstuetzt Passkeys hier nicht.';
@@ -80,19 +101,14 @@ async function api(action, options = {}) {
   const init = { method: options.method || 'GET', headers };
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
-    if (csrf()) {
-      headers['X-CSRF-Token'] = csrf();
-    }
+    if (csrf()) headers['X-CSRF-Token'] = csrf();
     init.body = JSON.stringify(options.body);
     init.method = options.method || 'POST';
   }
 
   const response = await fetch(url, init);
   const data = await response.json().catch(() => ({ ok: false, error: 'Ungueltige Serverantwort' }));
-  if (!response.ok || data.ok === false) {
-    throw new Error(data.error || `HTTP ${response.status}`);
-  }
-
+  if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
 
@@ -109,20 +125,12 @@ function base64UrlToBytes(value) {
 
 function decodePublicKeyOptions(publicKey) {
   const decoded = { ...publicKey, challenge: base64UrlToBytes(publicKey.challenge) };
-  if (decoded.user?.id) {
-    decoded.user = { ...decoded.user, id: base64UrlToBytes(decoded.user.id) };
-  }
+  if (decoded.user?.id) decoded.user = { ...decoded.user, id: base64UrlToBytes(decoded.user.id) };
   if (Array.isArray(decoded.allowCredentials)) {
-    decoded.allowCredentials = decoded.allowCredentials.map((credential) => ({
-      ...credential,
-      id: base64UrlToBytes(credential.id),
-    }));
+    decoded.allowCredentials = decoded.allowCredentials.map((credential) => ({ ...credential, id: base64UrlToBytes(credential.id) }));
   }
   if (Array.isArray(decoded.excludeCredentials)) {
-    decoded.excludeCredentials = decoded.excludeCredentials.map((credential) => ({
-      ...credential,
-      id: base64UrlToBytes(credential.id),
-    }));
+    decoded.excludeCredentials = decoded.excludeCredentials.map((credential) => ({ ...credential, id: base64UrlToBytes(credential.id) }));
   }
   return decoded;
 }
@@ -133,24 +141,12 @@ function serializeCredential(credential) {
     id: credential.id,
     rawId: bytesToBase64Url(credential.rawId),
     type: credential.type,
-    response: {
-      clientDataJSON: bytesToBase64Url(response.clientDataJSON),
-    },
+    response: { clientDataJSON: bytesToBase64Url(response.clientDataJSON) },
   };
-
-  if (response.authenticatorData) {
-    serialized.response.authenticatorData = bytesToBase64Url(response.authenticatorData);
-  }
-  if (response.signature) {
-    serialized.response.signature = bytesToBase64Url(response.signature);
-  }
-  if (response.userHandle) {
-    serialized.response.userHandle = bytesToBase64Url(response.userHandle);
-  }
-  if (response.attestationObject) {
-    serialized.response.attestationObject = bytesToBase64Url(response.attestationObject);
-  }
-
+  if (response.authenticatorData) serialized.response.authenticatorData = bytesToBase64Url(response.authenticatorData);
+  if (response.signature) serialized.response.signature = bytesToBase64Url(response.signature);
+  if (response.userHandle) serialized.response.userHandle = bytesToBase64Url(response.userHandle);
+  if (response.attestationObject) serialized.response.attestationObject = bytesToBase64Url(response.attestationObject);
   return serialized;
 }
 
@@ -193,11 +189,10 @@ async function verifyEmailLogin(token) {
 async function refresh() {
   state.status = await api('status');
   renderShell();
+  renderMeasurementControls();
   if (state.status.auth?.user) {
     await loadEntries();
-    if (state.status.auth.user.permissions.includes('manage_users')) {
-      await loadUsers();
-    }
+    if (state.status.auth.user.permissions.includes('manage_users')) await loadUsers();
   }
 }
 
@@ -220,10 +215,108 @@ function renderShell() {
   els.setupForm.querySelector('button[type="submit"]').disabled = !passkeysAvailable();
 
   if (state.status.auth?.bootstrap_pending && !setup && !user) {
-    setMessage('Initiales Setup ist offen. Lies web/bootstrap_setup.txt auf dem Server.', false);
+    setMessage('Initiales Setup offen. Lies web/bootstrap_setup.txt auf Server.', false);
   } else if (!user && !passkeysAvailable()) {
-    setMessage('Passkeys sind hier nicht verfuegbar. Nutze HTTPS und einen normalen Browser, keinen In-App-Browser.', true);
+    setMessage('Passkeys hier nicht verfuegbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
   }
+}
+
+function renderMeasurementControls() {
+  document.querySelectorAll('[data-measure-type]').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.measureType === state.measureType);
+  });
+
+  els.modeButtons.innerHTML = modes[state.measureType].map(([value, label]) => (
+    `<button type="button" data-mode="${value}" class="${value === state.mode ? 'is-active' : ''}">${label}</button>`
+  )).join('');
+
+  if (!modes[state.measureType].some(([value]) => value === state.mode)) {
+    state.mode = modes[state.measureType][0][0];
+    renderMeasurementControls();
+    return;
+  }
+
+  els.modeButtons.querySelectorAll('[data-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.mode = button.dataset.mode;
+      resetMeasurement();
+      renderMeasurementControls();
+    });
+  });
+
+  document.querySelectorAll('[data-duration]').forEach((button) => {
+    button.classList.toggle('is-active', Number(button.dataset.duration) === state.duration);
+  });
+
+  updateMeterView();
+}
+
+function resetMeasurement() {
+  clearInterval(state.timer);
+  clearTimeout(state.finishTimer);
+  state.measuring = false;
+  state.startedAt = 0;
+  state.timer = null;
+  state.finishTimer = null;
+  state.taps = 0;
+  state.result = null;
+  els.saveButton.disabled = true;
+  els.saveState.hidden = true;
+}
+
+function startMeasurement() {
+  resetMeasurement();
+  state.measuring = true;
+  state.startedAt = Date.now();
+  state.taps = 1;
+  pulseFeedback();
+  state.timer = setInterval(updateMeterView, 120);
+  state.finishTimer = setTimeout(finishMeasurement, state.duration * 1000);
+  updateMeterView();
+}
+
+function registerTap() {
+  if (!state.measuring) {
+    startMeasurement();
+    return;
+  }
+  state.taps += 1;
+  pulseFeedback();
+  updateMeterView();
+}
+
+function finishMeasurement() {
+  if (!state.measuring) return;
+  clearInterval(state.timer);
+  clearTimeout(state.finishTimer);
+  state.measuring = false;
+  state.timer = null;
+  state.finishTimer = null;
+  state.result = Math.round((state.taps / state.duration) * 60);
+  els.measuredAtInput.value = new Date().toISOString();
+  els.saveButton.disabled = false;
+  updateMeterView();
+}
+
+function pulseFeedback() {
+  els.tapButton.classList.remove('tap-hit');
+  void els.tapButton.offsetWidth;
+  els.tapButton.classList.add('tap-hit');
+  if (navigator.vibrate) navigator.vibrate(18);
+}
+
+function updateMeterView() {
+  const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
+  const unit = state.measureType === 'breath' ? 'Atemzuege/min' : 'Schlaege/min';
+  const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
+  const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
+  const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
+
+  els.meterStatus.textContent = state.measuring ? `${remaining}s verbleibend` : (state.result === null ? 'Bereit' : 'Fertig');
+  els.meterCount.textContent = `${state.taps} ${state.taps === 1 ? 'Tap' : 'Taps'}`;
+  els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Neue Messung starten');
+  els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : 'Erster Tap startet Timer';
+  els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `${liveRate} live` : '-- / min');
 }
 
 async function loadEntries() {
@@ -234,23 +327,30 @@ async function loadEntries() {
 
 function renderEntries() {
   if (state.entries.length === 0) {
-    els.entriesList.innerHTML = '<p class="muted">Noch keine Eintraege.</p>';
+    els.entriesList.innerHTML = '<p class="muted">Noch keine Messungen.</p>';
     return;
   }
 
   els.entriesList.innerHTML = state.entries.map((entry) => {
-    const date = formatDate(entry.measured_at || entry._created);
+    const type = entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
+    const rate = type === 'pulse' ? entry.pulse_per_minute : entry.breaths_per_minute;
+    const label = type === 'pulse' ? 'Puls' : 'Atemfrequenz';
+    const context = entry.context ? `<p class="muted">${escapeHtml(entry.context)}</p>` : '';
     const notes = entry.notes ? `<p class="muted">${escapeHtml(entry.notes)}</p>` : '';
     return `
       <article class="entry">
         <div class="entry-main">
-          <strong>${date}</strong>
+          <div>
+            <strong>${escapeHtml(entry.dog_name || 'Mein Hund')}</strong>
+            <span class="muted">${formatDate(entry.measured_at || entry._created)}</span>
+          </div>
           <div class="numbers">
-            ${entry.breaths_per_minute !== null ? `<span class="chip">AF ${entry.breaths_per_minute}</span>` : ''}
-            ${entry.pulse_per_minute !== null ? `<span class="chip">Puls ${entry.pulse_per_minute}</span>` : ''}
-            <span class="chip">${stateLabel(entry.state)}</span>
+            <span class="chip">${label} ${rate}</span>
+            <span class="chip">${modeLabel(type, entry.mode)}</span>
+            <span class="chip">${locationLabel(entry.location)}</span>
           </div>
         </div>
+        ${context}
         ${notes}
       </article>
     `;
@@ -262,62 +362,44 @@ async function loadUsers() {
   els.userList.innerHTML = (result.users || []).map((user) => `
     <div class="user-row">
       <strong>${escapeHtml(user.display_name || user.username)}</strong>
-      <span class="muted">${escapeHtml(user.username)} · ${user.permissions.join(', ')}</span>
+      <span class="muted">${escapeHtml(user.username)} - ${user.permissions.join(', ')}</span>
     </div>
   `).join('');
 }
 
-function tap(kind) {
-  const meter = state[kind];
-  const now = Date.now();
-  if (!meter.startedAt || now - meter.startedAt > meter.window * 1000) {
-    meter.startedAt = now;
-    meter.count = 0;
-  }
-  meter.count += 1;
-  const elapsed = Math.max((now - meter.startedAt) / 1000, 1);
-  const rate = Math.round((meter.count / Math.min(elapsed, meter.window)) * 60);
-  const target = kind === 'breath' ? els.breathRate : els.pulseRate;
-  const input = kind === 'breath' ? els.breathInput : els.pulseInput;
-  target.value = String(rate);
-  input.value = String(rate);
-}
-
 async function saveEntry(event) {
   event.preventDefault();
+  if (state.result === null) return;
+
+  localStorage.setItem('doggylog.dogName', els.dogNameInput.value.trim() || 'Mein Hund');
   els.saveState.hidden = false;
   els.saveState.textContent = 'Speichere...';
-  const body = {
-    type: 'vitals',
-    object: {
-      measured_at: els.measuredAtInput.value ? new Date(els.measuredAtInput.value).toISOString() : '',
-      breaths_per_minute: els.breathInput.value,
-      pulse_per_minute: els.pulseInput.value,
-      state: els.stateInput.value,
-      notes: els.notesInput.value,
-    },
+
+  const object = {
+    measured_at: els.measuredAtInput.value || new Date().toISOString(),
+    dog_name: els.dogNameInput.value.trim() || 'Mein Hund',
+    measurement_type: state.measureType,
+    mode: state.mode,
+    duration_seconds: state.duration,
+    location: els.locationInput.value,
+    context: els.contextInput.value,
+    notes: els.notesInput.value,
   };
-  await api('object-create', { method: 'POST', body });
+
+  if (state.measureType === 'pulse') object.pulse_per_minute = state.result;
+  if (state.measureType === 'breath') object.breaths_per_minute = state.result;
+
+  await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
+  els.contextInput.value = '';
   els.notesInput.value = '';
-  state.breath = { ...state.breath, count: 0, startedAt: 0 };
-  state.pulse = { ...state.pulse, count: 0, startedAt: 0 };
+  resetMeasurement();
+  updateMeterView();
   await loadEntries();
 }
 
-function setWindow(kind, value) {
-  state[kind].window = Number(value);
-  state[kind].count = 0;
-  state[kind].startedAt = 0;
-  document.querySelectorAll(`[data-${kind}-window]`).forEach((button) => {
-    button.classList.toggle('is-active', button.dataset[`${kind}Window`] === value);
-  });
-}
-
-function setDefaultTime() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  els.measuredAtInput.value = now.toISOString().slice(0, 16);
+function setDefaultDog() {
+  els.dogNameInput.value = localStorage.getItem('doggylog.dogName') || 'Mein Hund';
 }
 
 function formatDate(value) {
@@ -325,14 +407,12 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
-function stateLabel(value) {
-  return {
-    resting: 'Ruhe',
-    sleeping: 'Schlaf',
-    after_walk: 'Nach Spaziergang',
-    excited: 'Aufgeregt',
-    other: 'Sonstiges',
-  }[value] || value || 'Ruhe';
+function modeLabel(type, value) {
+  return Object.fromEntries(modes[type] || [])[value] || value || 'Ruhend';
+}
+
+function locationLabel(value) {
+  return { home: 'Zuhause', school: 'Schule', away: 'Unterwegs' }[value] || value || 'Zuhause';
 }
 
 function escapeHtml(value) {
@@ -359,12 +439,25 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
   els.loginEmailState.hidden = false;
   els.loginEmailState.textContent = 'Sende...';
   const result = await api('auth-email-login-request', { method: 'POST', body: { email: els.loginEmailInput.value } });
-  els.loginEmailState.textContent = result.message || 'Wenn die Adresse bekannt ist, wurde ein Link gesendet.';
+  els.loginEmailState.textContent = result.message || 'Wenn Adresse bekannt ist, wurde Link gesendet.';
 });
-els.breathTapButton.addEventListener('click', () => tap('breath'));
-els.pulseTapButton.addEventListener('click', () => tap('pulse'));
-document.querySelectorAll('[data-breath-window]').forEach((button) => button.addEventListener('click', () => setWindow('breath', button.dataset.breathWindow)));
-document.querySelectorAll('[data-pulse-window]').forEach((button) => button.addEventListener('click', () => setWindow('pulse', button.dataset.pulseWindow)));
+
+document.querySelectorAll('[data-measure-type]').forEach((button) => {
+  button.addEventListener('click', () => {
+    state.measureType = button.dataset.measureType;
+    state.mode = modes[state.measureType][0][0];
+    resetMeasurement();
+    renderMeasurementControls();
+  });
+});
+document.querySelectorAll('[data-duration]').forEach((button) => {
+  button.addEventListener('click', () => {
+    state.duration = Number(button.dataset.duration);
+    resetMeasurement();
+    renderMeasurementControls();
+  });
+});
+els.tapButton.addEventListener('click', registerTap);
 els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((error) => {
   els.saveState.hidden = false;
   els.saveState.textContent = error.message;
@@ -387,7 +480,8 @@ els.createUserForm.addEventListener('submit', async (event) => {
   await loadUsers();
 });
 
-setDefaultTime();
+setDefaultDog();
+renderMeasurementControls();
 
 const params = new URLSearchParams(window.location.search);
 const loginToken = params.get('login');
