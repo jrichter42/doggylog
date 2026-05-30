@@ -1,13 +1,14 @@
 :root {
-  --bg: #f6f4ef;
-  --panel: #ffffff;
-  --ink: #202124;
-  --muted: #667085;
-  --line: #d8d5ce;
-  --accent: #0f766e;
-  --accent-strong: #115e59;
-  --pulse: #b42318;
-  --shadow: 0 16px 40px rgba(31, 41, 55, 0.12);
+  --bg: #111318;
+  --panel: #1b1f27;
+  --panel-soft: #232936;
+  --ink: #f4f7fb;
+  --muted: #a8b3c4;
+  --line: #353c4b;
+  --accent: #2dd4bf;
+  --accent-strong: #7dd3fc;
+  --pulse: #fb7185;
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
 }
 
 * {
@@ -55,7 +56,7 @@ button:active {
   gap: 1rem;
   padding: 1rem clamp(1rem, 4vw, 2.5rem);
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(17, 19, 24, 0.9);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -179,21 +180,22 @@ main {
 
 .segmented .is-active {
   border-color: var(--accent);
-  background: #dff5ef;
+  background: #123b3a;
+  color: var(--ink);
 }
 
 .tap-button {
   width: 100%;
   min-height: 4.6rem;
   border-color: var(--accent);
-  background: #e7f7f2;
-  color: var(--accent-strong);
+  background: #123b3a;
+  color: var(--accent);
   font-weight: 800;
 }
 
 .tap-button.pulse {
   border-color: var(--pulse);
-  background: #fff0ed;
+  background: #411923;
   color: var(--pulse);
 }
 
@@ -217,7 +219,7 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: #121721;
   color: var(--ink);
   min-height: 44px;
   padding: 0.65rem 0.75rem;
@@ -250,7 +252,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.8rem;
-  background: #fbfaf7;
+  background: var(--panel-soft);
 }
 
 .entry-main {
@@ -268,8 +270,8 @@ textarea {
 
 .chip {
   border-radius: 999px;
-  background: #edf4f2;
-  color: var(--accent-strong);
+  background: #123b3a;
+  color: var(--accent);
   padding: 0.25rem 0.55rem;
   font-weight: 800;
 }
@@ -279,7 +281,7 @@ textarea {
   border: 1px dashed var(--accent);
   border-radius: 8px;
   padding: 0.75rem;
-  background: #f0fbf7;
+  background: #123b3a;
 }
 
 footer {
