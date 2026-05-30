@@ -26,6 +26,8 @@ const state = {
   finishTimer: null,
   taps: 0,
   result: null,
+  editingEntryId: null,
+  saveTimers: new Map(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -59,7 +61,7 @@ const els = {
   measuredAtInput: $('measuredAtInput'),
   contextInput: $('contextInput'),
   addContextButton: $('addContextButton'),
-  notesInput: $('notesInput'),
+  commentInput: $('commentInput'),
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
   saveState: $('saveState'),
@@ -405,10 +407,11 @@ function renderEntries() {
     const rate = type === 'pulse' ? entry.pulse_per_minute : entry.breaths_per_minute;
     const label = type === 'pulse' ? 'Puls' : 'Atemfrequenz';
     const context = entry.context ? `<p class="muted">${escapeHtml(entry.context)}</p>` : '';
-    const notes = entry.notes ? `<p class="muted">${escapeHtml(entry.notes)}</p>` : '';
+    const comment = entry.comment || entry.notes ? `<p class="muted">${escapeHtml(entry.comment || entry.notes)}</p>` : '';
+    const editing = state.editingEntryId === entry._id;
     return `
-      <article class="entry">
-        <div class="entry-main">
+      <article class="entry ${editing ? 'is-editing' : ''}">
+        <button class="entry-toggle" type="button" data-edit-entry="${escapeHtml(entry._id)}">
           <div>
             <strong>${escapeHtml(entry.dog_name || 'Mein Hund')}</strong>
             <span class="muted">${formatDate(entry.measured_at || entry._created)}</span>
@@ -417,18 +420,138 @@ function renderEntries() {
             <span class="chip">${label} ${rate}</span>
             <span class="chip">${modeLabel(type, entry.mode)}</span>
             <span class="chip">${locationLabel(entry.location)}</span>
-            <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
           </div>
-        </div>
+        </button>
         ${context}
-        ${notes}
+        ${comment}
+        ${editing ? renderEntryEditor(entry, type, rate) : ''}
       </article>
     `;
   }).join('');
 
+  els.entriesList.querySelectorAll('[data-edit-entry]').forEach((button) => {
+    button.addEventListener('click', () => toggleEntryEditor(button.dataset.editEntry));
+  });
   els.entriesList.querySelectorAll('[data-delete-entry]').forEach((button) => {
     button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
   });
+  els.entriesList.querySelectorAll('[data-autosave-entry]').forEach((input) => {
+    const eventName = input.tagName === 'TEXTAREA' || input.type === 'number' || input.type === 'datetime-local' ? 'input' : 'change';
+    input.addEventListener(eventName, () => queueEntrySave(input.dataset.autosaveEntry));
+  });
+}
+
+function renderEntryEditor(entry, type, rate) {
+  const dogOptions = state.dogs.map((dog) => (
+    `<option value="${escapeHtml(dog._id)}" ${dog._id === entry.dog_id ? 'selected' : ''}>${escapeHtml(dog.name || 'Mein Hund')}</option>`
+  )).join('');
+  const modeOptions = sharedModes.map(([value, label]) => (
+    `<option value="${value}" ${value === entry.mode ? 'selected' : ''}>${label}</option>`
+  )).join('');
+  const entryContext = entry.context || '';
+  const editorContexts = state.contextPresets.includes(entryContext) || entryContext === ''
+    ? state.contextPresets
+    : state.contextPresets.concat(entryContext);
+  const contextOptions = [''].concat(editorContexts).map((context) => (
+    `<option value="${escapeHtml(context)}" ${context === (entry.context || '') ? 'selected' : ''}>${escapeHtml(context || 'Ohne Kontext')}</option>`
+  )).join('');
+
+  return `
+    <div class="entry-editor" data-entry-editor="${escapeHtml(entry._id)}">
+      <label>
+        Zeitpunkt
+        <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
+      </label>
+      <label>
+        Hund
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="dog_id">${dogOptions}</select>
+      </label>
+      <label>
+        Messart
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="measurement_type">
+          <option value="breath" ${type === 'breath' ? 'selected' : ''}>Atemfrequenz</option>
+          <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Puls</option>
+        </select>
+      </label>
+      <label>
+        Wert
+        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="rate" value="${escapeHtml(rate ?? '')}">
+      </label>
+      <label>
+        Modus
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="mode">${modeOptions}</select>
+      </label>
+      <label>
+        Dauer
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="duration_seconds">
+          <option value="15" ${Number(entry.duration_seconds) === 15 ? 'selected' : ''}>15 Sekunden</option>
+          <option value="30" ${Number(entry.duration_seconds) === 30 ? 'selected' : ''}>30 Sekunden</option>
+        </select>
+      </label>
+      <label>
+        Ort
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location">
+          <option value="home" ${entry.location === 'home' ? 'selected' : ''}>Zuhause</option>
+          <option value="school" ${entry.location === 'school' ? 'selected' : ''}>Schule</option>
+          <option value="away" ${entry.location === 'away' ? 'selected' : ''}>Unterwegs</option>
+        </select>
+      </label>
+      <label>
+        Kontext
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context">${contextOptions}</select>
+      </label>
+      <label class="entry-editor-wide">
+        Kommentar
+        <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="comment">${escapeHtml(entry.comment || entry.notes || '')}</textarea>
+      </label>
+      <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
+    </div>
+  `;
+}
+
+function toggleEntryEditor(id) {
+  if (state.editingEntryId !== null) {
+    clearTimeout(state.saveTimers.get(state.editingEntryId));
+    saveEntryEdit(state.editingEntryId).catch((error) => setMessage(error.message, true));
+  }
+  state.editingEntryId = state.editingEntryId === id ? null : id;
+  renderEntries();
+}
+
+function queueEntrySave(id) {
+  clearTimeout(state.saveTimers.get(id));
+  state.saveTimers.set(id, setTimeout(() => saveEntryEdit(id).catch((error) => setMessage(error.message, true)), 350));
+}
+
+async function saveEntryEdit(id) {
+  const entry = state.entries.find((item) => item._id === id);
+  const editor = els.entriesList.querySelector(`[data-entry-editor="${cssEscape(id)}"]`);
+  if (!entry || !editor) return;
+
+  const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [input.dataset.field, input.value]));
+  const dog = state.dogs.find((item) => item._id === values.dog_id);
+  const measurementType = values.measurement_type === 'pulse' ? 'pulse' : 'breath';
+  const object = {
+    measured_at: values.measured_at,
+    dog_id: values.dog_id || '',
+    dog_name: dog?.name || entry.dog_name || 'Mein Hund',
+    measurement_type: measurementType,
+    mode: values.mode,
+    duration_seconds: Number(values.duration_seconds),
+    location: values.location,
+    context: values.context,
+    comment: values.comment,
+    breaths_per_minute: measurementType === 'breath' ? Number(values.rate) : null,
+    pulse_per_minute: measurementType === 'pulse' ? Number(values.rate) : null,
+  };
+
+  const result = await api('object-update', {
+    method: 'POST',
+    body: { type: 'vitals', id, base_revision: entry._revision, object },
+  });
+  state.entries = state.entries.map((item) => (item._id === id ? result.object : item));
+  const deleteButton = editor.querySelector('[data-delete-entry]');
+  if (deleteButton) deleteButton.dataset.revision = result.object._revision;
 }
 
 async function saveEntry(event) {
@@ -448,7 +571,7 @@ async function saveEntry(event) {
     duration_seconds: state.duration,
     location: state.location,
     context: els.contextInput.value,
-    notes: els.notesInput.value,
+    comment: els.commentInput.value,
   };
 
   if (state.measureType === 'pulse') object.pulse_per_minute = state.result;
@@ -456,7 +579,7 @@ async function saveEntry(event) {
 
   await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
-  els.notesInput.value = '';
+  els.commentInput.value = '';
   resetMeasurement();
   updateMeterView();
   await loadEntries();
@@ -472,6 +595,14 @@ async function deleteEntry(id, revision) {
 function formatDate(value) {
   if (!value) return 'Ohne Zeitpunkt';
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function dateTimeLocalValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
 function modeLabel(type, value) {
@@ -490,6 +621,11 @@ function escapeHtml(value) {
     '"': '&quot;',
     "'": '&#039;',
   }[char]));
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(value);
+  return String(value).replace(/["\\]/g, '\\$&');
 }
 
 els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => setMessage(error.message, true)));

@@ -26,7 +26,6 @@ $configWarnings = array_map(
     <header class="topbar">
       <div class="brand-line">
         <div class="brand-title">
-          <span class="eyebrow">Vitalzeichen</span>
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
         <span class="connection-status" id="connectionStatus">Lädt...</span>
@@ -135,8 +134,8 @@ $configWarnings = array_map(
               <button class="icon-button" id="addContextButton" type="button" aria-label="Kontext hinzufügen" title="Kontext hinzufügen">+</button>
             </div>
             <label>
-              Freitext
-              <textarea id="notesInput" name="notes" rows="3" placeholder="Optional"></textarea>
+              Kommentar
+              <textarea id="commentInput" name="comment" rows="3" placeholder="Optional"></textarea>
             </label>
             <button class="primary" id="saveButton" type="submit" disabled>Messung speichern</button>
             <p id="saveState" class="muted" hidden></p>

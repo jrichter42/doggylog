@@ -471,6 +471,22 @@ textarea {
   background: var(--panel-soft);
 }
 
+.entry.is-editing {
+  border-color: var(--accent);
+}
+
+.entry-toggle {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .entry-main {
   display: grid;
   gap: 0.65rem;
@@ -485,6 +501,18 @@ textarea {
   display: flex;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.entry-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+}
+
+.entry-editor-wide {
+  grid-column: 1 / -1;
 }
 
 .chip {
@@ -539,7 +567,8 @@ footer {
 
   .form-grid,
   .inline-form,
-  .location-grid {
+  .location-grid,
+  .entry-editor {
     grid-template-columns: 1fr;
   }
 

@@ -22,7 +22,6 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
     <header class="topbar">
       <div class="brand-line">
         <div class="brand-title">
-          <span class="eyebrow">Vitalzeichen</span>
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
       </div>

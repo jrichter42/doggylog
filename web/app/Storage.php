@@ -30,7 +30,7 @@ final class Storage
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],
             'context' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
-            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'comment' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
         ],
     ];
 
@@ -252,6 +252,9 @@ final class Storage
         }
 
         $updated = array_merge($current, $this->normalizePayload($type, $payload, $access));
+        if ($type === 'vitals' && array_key_exists('comment', $payload)) {
+            unset($updated['notes']);
+        }
         $updated['_revision'] = (int) ($current['_revision'] ?? 0) + 1;
         $updated['_modified'] = $this->now();
         $updated['_modifiedBy'] = $username;
