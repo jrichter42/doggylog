@@ -254,6 +254,18 @@ main {
   position: absolute;
 }
 
+.tap-button:disabled {
+  opacity: 1;
+  border-color: var(--line);
+  background: #18202d;
+  color: var(--muted);
+}
+
+.secondary-action {
+  justify-self: center;
+  min-width: 12rem;
+}
+
 @keyframes tap-hit {
   0% { transform: scale(0.98); background: #145c57; }
   55% { transform: scale(1.015); background: #168476; }

@@ -46,6 +46,7 @@ const els = {
   tapButton: $('tapButton'),
   tapButtonMain: $('tapButtonMain'),
   tapButtonSub: $('tapButtonSub'),
+  newMeasurementButton: $('newMeasurementButton'),
   meterStatus: $('meterStatus'),
   meterCount: $('meterCount'),
   measurementResult: $('measurementResult'),
@@ -262,6 +263,8 @@ function resetMeasurement() {
   state.finishTimer = null;
   state.taps = 0;
   state.result = null;
+  els.tapButton.disabled = false;
+  els.newMeasurementButton.hidden = true;
   els.saveButton.disabled = true;
   els.saveState.hidden = true;
 }
@@ -296,6 +299,8 @@ function finishMeasurement() {
   state.finishTimer = null;
   state.result = Math.round((state.taps / state.duration) * 60);
   els.measuredAtInput.value = new Date().toISOString();
+  els.tapButton.disabled = true;
+  els.newMeasurementButton.hidden = false;
   els.saveButton.disabled = false;
   updateMeterView();
 }
@@ -316,8 +321,8 @@ function updateMeterView() {
 
   els.meterStatus.textContent = state.measuring ? `${remaining}s verbleibend` : (state.result === null ? 'Bereit' : 'Fertig');
   els.meterCount.textContent = `${state.taps} ${state.taps === 1 ? 'Tap' : 'Taps'}`;
-  els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Neue Messung starten');
-  els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : 'Erster Tap startet Timer';
+  els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
+  els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
   els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `${liveRate} live` : '-- / min');
 }
 
@@ -460,6 +465,10 @@ document.querySelectorAll('[data-duration]').forEach((button) => {
   });
 });
 els.tapButton.addEventListener('click', registerTap);
+els.newMeasurementButton.addEventListener('click', () => {
+  resetMeasurement();
+  updateMeterView();
+});
 els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((error) => {
   els.saveState.hidden = false;
   els.saveState.textContent = error.message;

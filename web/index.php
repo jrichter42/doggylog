@@ -110,6 +110,7 @@ $configWarnings = array_map(
               <small id="tapButtonSub">Erster Tap startet Timer</small>
             </button>
             <output class="result" id="measurementResult">-- / min</output>
+            <button class="secondary-action" id="newMeasurementButton" type="button" hidden>Neue Messung</button>
           </div>
 
           <form class="save-panel" id="entryForm">
