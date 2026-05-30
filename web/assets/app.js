@@ -44,6 +44,7 @@ const els = {
   accountLink: $('accountLink'),
   dogSelect: $('dogSelect'),
   modeButtons: $('modeButtons'),
+  meterStage: $('meterStage'),
   tapButton: $('tapButton'),
   tapButtonMain: $('tapButtonMain'),
   tapButtonSub: $('tapButtonSub'),
@@ -309,16 +310,20 @@ function pulseFeedback() {
 
 function updateMeterView() {
   const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
+  const countLabel = state.measureType === 'breath'
+    ? (state.taps === 1 ? 'Atemzug' : 'Atemzüge')
+    : (state.taps === 1 ? 'Pulsschlag' : 'Pulsschläge');
   const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Schläge/min';
   const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
 
-  els.meterStatus.textContent = state.measuring ? `${remaining}s verbleibend` : (state.result === null ? 'Bereit' : 'Fertig');
-  els.meterCount.textContent = `${state.taps} ${state.taps === 1 ? 'Tap' : 'Taps'}`;
+  els.meterStage.classList.toggle('is-measuring', state.measuring);
+  els.meterStatus.textContent = state.measuring ? `Noch ${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
+  els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
   els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
-  els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `${liveRate} live` : '-- / min');
+  els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `Aktuell ${liveRate} ${unit}` : '-- / min');
 }
 
 async function loadEntries() {
