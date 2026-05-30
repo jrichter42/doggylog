@@ -1,14 +1,13 @@
+const sharedModes = [
+  ['resting', 'Ruhend'],
+  ['active', 'Aktivität'],
+  ['panting', 'Hechelnd'],
+  ['sleeping', 'Schlafend'],
+];
+
 const modes = {
-  breath: [
-    ['resting', 'Ruhend'],
-    ['active', 'Aktivität'],
-    ['panting', 'Hechelnd'],
-    ['sleeping', 'Schlafend'],
-  ],
-  pulse: [
-    ['resting', 'Ruhepuls'],
-    ['active', 'Aktivitätspuls'],
-  ],
+  breath: sharedModes,
+  pulse: sharedModes,
 };
 
 const state = {

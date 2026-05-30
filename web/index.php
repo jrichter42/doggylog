@@ -160,7 +160,7 @@ $configWarnings = array_map(
       </section>
     </main>
 
-    <footer><a href="https://github.doggylog.kimvosen.de">v<?= $version ?></a></footer>
+    <footer><a href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></footer>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>
