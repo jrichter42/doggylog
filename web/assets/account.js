@@ -12,6 +12,10 @@ const els = {
   selfSetupResult: $('selfSetupResult'),
   dogCreateForm: $('dogCreateForm'),
   dogList: $('dogList'),
+  adminPanel: $('adminPanel'),
+  createUserForm: $('createUserForm'),
+  setupResult: $('setupResult'),
+  userList: $('userList'),
 };
 
 function setMessage(text, isError = false) {
@@ -54,6 +58,8 @@ async function refresh() {
   }
   els.page.hidden = false;
   await loadDogs();
+  els.adminPanel.hidden = !state.status.auth.user.permissions.includes('manage_users');
+  if (!els.adminPanel.hidden) await loadUsers();
 }
 
 async function loadDogs() {
@@ -121,6 +127,16 @@ async function deleteDog(id, revision) {
   await loadDogs();
 }
 
+async function loadUsers() {
+  const result = await api('admin-users');
+  els.userList.innerHTML = (result.users || []).map((user) => `
+    <div class="user-row">
+      <strong>${escapeHtml(user.display_name || user.username)}</strong>
+      <span class="muted">${escapeHtml(user.username)} - ${user.permissions.join(', ')}</span>
+    </div>
+  `).join('');
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     '&': '&amp;',
@@ -148,6 +164,23 @@ els.dogCreateForm.addEventListener('submit', async (event) => {
   await api('object-create', { method: 'POST', body: { type: 'dogs', object: { name: form.get('name') } } });
   event.currentTarget.reset();
   await loadDogs();
+});
+
+els.createUserForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const result = await api('admin-create-user', {
+    method: 'POST',
+    body: {
+      username: form.get('username'),
+      display_name: form.get('display_name'),
+      permissions: ['read', 'write'],
+    },
+  });
+  els.setupResult.hidden = false;
+  els.setupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
+  event.currentTarget.reset();
+  await loadUsers();
 });
 
 refresh().catch((error) => setMessage(error.message, true));

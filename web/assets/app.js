@@ -60,10 +60,6 @@ const els = {
   saveState: $('saveState'),
   refreshButton: $('refreshButton'),
   entriesList: $('entriesList'),
-  adminPanel: $('adminPanel'),
-  createUserForm: $('createUserForm'),
-  setupResult: $('setupResult'),
-  userList: $('userList'),
 };
 
 function setMessage(text, isError = false) {
@@ -195,7 +191,6 @@ async function refresh() {
   if (state.status.auth?.user) {
     await loadDogs();
     await loadEntries();
-    if (state.status.auth.user.permissions.includes('manage_users')) await loadUsers();
   }
 }
 
@@ -214,7 +209,6 @@ function renderShell() {
   els.loginPanel.hidden = Boolean(setup) && !user;
   els.setupInput.value = setup || '';
   els.loginEmailForm.hidden = !state.status?.mail?.login_enabled;
-  els.adminPanel.hidden = !user?.permissions?.includes('manage_users');
   els.passkeyLoginButton.disabled = !passkeysAvailable();
   els.setupForm.querySelector('button[type="submit"]').disabled = !passkeysAvailable();
 
@@ -393,16 +387,6 @@ function renderEntries() {
   });
 }
 
-async function loadUsers() {
-  const result = await api('admin-users');
-  els.userList.innerHTML = (result.users || []).map((user) => `
-    <div class="user-row">
-      <strong>${escapeHtml(user.display_name || user.username)}</strong>
-      <span class="muted">${escapeHtml(user.username)} - ${user.permissions.join(', ')}</span>
-    </div>
-  `).join('');
-}
-
 async function saveEntry(event) {
   event.preventDefault();
   if (state.result === null) return;
@@ -507,23 +491,6 @@ els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((erro
   els.saveState.textContent = error.message;
 }));
 els.refreshButton.addEventListener('click', () => loadEntries().catch((error) => setMessage(error.message, true)));
-els.createUserForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  const result = await api('admin-create-user', {
-    method: 'POST',
-    body: {
-      username: form.get('username'),
-      display_name: form.get('display_name'),
-      permissions: ['read', 'write'],
-    },
-  });
-  els.setupResult.hidden = false;
-  els.setupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
-  event.currentTarget.reset();
-  await loadUsers();
-});
-
 renderMeasurementControls();
 
 const params = new URLSearchParams(window.location.search);

@@ -146,17 +146,6 @@ $configWarnings = array_map(
           </div>
           <div id="entriesList" class="entries"></div>
         </section>
-
-        <section class="admin" id="adminPanel" hidden>
-          <h2>Benutzer</h2>
-          <form id="createUserForm" class="inline-form">
-            <input name="username" placeholder="Benutzername" autocomplete="off" required>
-            <input name="display_name" placeholder="Anzeigename" autocomplete="name">
-            <button type="submit">Setup-Link erstellen</button>
-          </form>
-          <p class="setup-link" id="setupResult" hidden></p>
-          <div id="userList" class="user-list"></div>
-        </section>
       </section>
     </main>
 

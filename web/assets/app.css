@@ -229,6 +229,15 @@ main {
   color: var(--muted);
 }
 
+.section-head {
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
 .tap-button {
   width: 100%;
   min-height: min(46vh, 18rem);

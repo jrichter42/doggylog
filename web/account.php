@@ -51,6 +51,19 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
           </form>
           <div class="entries" id="dogList"></div>
         </section>
+
+        <section class="admin" id="adminPanel" hidden>
+          <div class="section-head">
+            <h2>Benutzer</h2>
+          </div>
+          <form id="createUserForm" class="inline-form">
+            <input name="username" placeholder="Benutzername" autocomplete="off" required>
+            <input name="display_name" placeholder="Anzeigename" autocomplete="name">
+            <button type="submit">Setup-Link erstellen</button>
+          </form>
+          <p class="setup-link" id="setupResult" hidden></p>
+          <div id="userList" class="user-list"></div>
+        </section>
       </section>
     </main>
 
