@@ -96,8 +96,8 @@ $configWarnings = array_map(
           <div class="choice-block">
             <span class="control-title">Dauer</span>
             <div class="segmented" role="group" aria-label="Messdauer">
-              <button type="button" data-duration="15">15 Sekunden</button>
-              <button type="button" data-duration="30" class="is-active">30 Sekunden</button>
+              <button type="button" data-duration="15" class="is-active">15 Sekunden</button>
+              <button type="button" data-duration="30">30 Sekunden</button>
             </div>
           </div>
 

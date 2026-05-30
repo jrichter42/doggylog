@@ -229,21 +229,23 @@ main {
   color: var(--muted);
 }
 
-.meter-stage.is-measuring .meter-meta {
+.meter-meta {
   display: grid;
   gap: 0.25rem;
   justify-content: stretch;
   text-align: center;
+  min-height: 5.75rem;
+  align-content: center;
 }
 
-.meter-stage.is-measuring #meterStatus {
+#meterStatus {
   color: var(--ink);
   font-size: clamp(2.1rem, 12vw, 4.4rem);
   font-weight: 1000;
   line-height: 1;
 }
 
-.meter-stage.is-measuring #meterCount {
+#meterCount {
   color: var(--accent-2);
   font-size: 1.05rem;
   font-weight: 900;

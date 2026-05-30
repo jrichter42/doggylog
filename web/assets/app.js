@@ -16,7 +16,7 @@ const state = {
   dogs: [],
   measureType: 'breath',
   mode: 'resting',
-  duration: 30,
+  duration: 15,
   measuring: false,
   startedAt: 0,
   timer: null,
@@ -318,7 +318,6 @@ function updateMeterView() {
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
 
-  els.meterStage.classList.toggle('is-measuring', state.measuring);
   els.meterStatus.textContent = state.measuring ? `Noch ${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
   els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
