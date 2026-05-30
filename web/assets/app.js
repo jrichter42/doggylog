@@ -58,6 +58,8 @@ const els = {
   saveState: $('saveState'),
   refreshButton: $('refreshButton'),
   entriesList: $('entriesList'),
+  selfSetupButton: $('selfSetupButton'),
+  selfSetupResult: $('selfSetupResult'),
   adminPanel: $('adminPanel'),
   createUserForm: $('createUserForm'),
   setupResult: $('setupResult'),
@@ -463,6 +465,16 @@ els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((erro
   els.saveState.textContent = error.message;
 }));
 els.refreshButton.addEventListener('click', () => loadEntries().catch((error) => setMessage(error.message, true)));
+els.selfSetupButton.addEventListener('click', async () => {
+  els.selfSetupResult.hidden = false;
+  els.selfSetupResult.textContent = 'Erstelle Link...';
+  try {
+    const result = await api('account-create-setup-token', { method: 'POST', body: {} });
+    els.selfSetupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
+  } catch (error) {
+    els.selfSetupResult.textContent = error.message;
+  }
+});
 els.createUserForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);

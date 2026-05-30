@@ -441,6 +441,15 @@ try {
             Http::json(['ok' => true, 'account' => $auth->account((string) $user['username'])]);
             break;
 
+        case 'account-create-setup-token':
+            Http::requireMethod('POST');
+            $user = require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            $setup = $auth->createSetupToken((string) $user['username'], (string) $user['username']);
+            Http::json(['ok' => true, 'setup' => $setup]);
+            break;
+
         case 'admin-users':
             Http::requireMethod('GET');
             require_permission($auth, 'manage_users');

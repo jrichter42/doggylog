@@ -116,6 +116,7 @@ main {
 .auth-card,
 .measure-card,
 .history,
+.access-card,
 .admin {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -139,6 +140,7 @@ main {
 .auth-card,
 .measure-card,
 .history,
+.access-card,
 .admin {
   padding: 1rem;
 }
@@ -394,6 +396,7 @@ footer {
 
   .measure-card,
   .history,
+  .access-card,
   .admin {
     padding: 0.85rem;
   }

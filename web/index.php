@@ -145,6 +145,15 @@ $configWarnings = array_map(
           <div id="entriesList" class="entries"></div>
         </section>
 
+        <section class="access-card">
+          <div class="section-head">
+            <h2>Zugang</h2>
+            <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
+          </div>
+          <p class="muted">Erstellt einen einmaligen Link, um fuer diesen Benutzer einen weiteren Passkey einzurichten.</p>
+          <p class="setup-link" id="selfSetupResult" hidden></p>
+        </section>
+
         <section class="admin" id="adminPanel" hidden>
           <h2>Benutzer</h2>
           <form id="createUserForm" class="inline-form">
