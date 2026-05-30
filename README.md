@@ -11,7 +11,7 @@ Mobile PHP-Webseite zum Erfassen von Atemfrequenz und Puls eines Hundes.
 
 ## Daten
 
-- Vitalwerte liegen als JSON in `web/data/vitals/`.
+- Hunde liegen in `web/data/dogs/`, Vitalwerte in `web/data/vitals/`.
 - Auth-, Session- und Setupdaten liegen in `web/var/auth/`.
 - `.htaccess` schuetzt `app/`, `config/`, `data/` und `var/` vor direktem Webzugriff.
 

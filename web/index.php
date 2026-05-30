@@ -30,6 +30,7 @@ $configWarnings = array_map(
       </div>
       <div class="session">
         <span id="connectionStatus">Laedt...</span>
+        <a class="button-link" id="accountLink" href="account.php" hidden>Konto</a>
         <button id="loginButton" type="button" hidden>Login</button>
         <button id="logoutButton" type="button" hidden>Logout</button>
       </div>
@@ -75,7 +76,7 @@ $configWarnings = array_map(
           <div class="dog-row">
             <label>
               Hund
-              <input id="dogNameInput" autocomplete="off" value="Mein Hund">
+              <select id="dogSelect"></select>
             </label>
           </div>
 
@@ -144,15 +145,6 @@ $configWarnings = array_map(
             <button id="refreshButton" type="button">Aktualisieren</button>
           </div>
           <div id="entriesList" class="entries"></div>
-        </section>
-
-        <section class="access-card">
-          <div class="section-head">
-            <h2>Zugang</h2>
-            <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
-          </div>
-          <p class="muted">Erstellt einen einmaligen Link, um fuer diesen Benutzer einen weiteren Passkey einzurichten.</p>
-          <p class="setup-link" id="selfSetupResult" hidden></p>
         </section>
 
         <section class="admin" id="adminPanel" hidden>

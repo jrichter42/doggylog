@@ -46,6 +46,17 @@ button:disabled {
   opacity: 0.5;
 }
 
+.button-link {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  display: inline-flex;
+  min-height: 48px;
+  padding: 0.75rem 0.9rem;
+  text-decoration: none;
+}
+
 button:active {
   transform: scale(0.985);
 }
@@ -380,6 +391,24 @@ textarea {
   background: #123b3a;
 }
 
+.delete-entry {
+  border-color: #7f1d1d;
+  background: #3b1116;
+  color: #fda4af;
+  min-height: 36px;
+  padding: 0.35rem 0.6rem;
+}
+
+.entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.dog-edit {
+  gap: 0.8rem;
+}
+
 footer {
   padding: 2rem 1rem;
   text-align: center;
@@ -412,4 +441,8 @@ footer {
   .admin {
     padding: 0.85rem;
   }
+}
+.account-card {
+  display: grid;
+  gap: 0.85rem;
 }

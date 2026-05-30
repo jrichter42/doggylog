@@ -95,9 +95,9 @@ function require_csrf(AuthStore $auth, array $body): void
 /**
  * @param array<string, mixed> $object
  */
-function require_vital_owner(AuthStore $auth, string $type, array $object): void
+function require_owned_object(AuthStore $auth, string $type, array $object): void
 {
-    if ($type !== 'vitals' || $auth->hasPermission('manage_users')) {
+    if (!in_array($type, ['vitals', 'dogs'], true) || $auth->hasPermission('manage_users')) {
         return;
     }
 
@@ -152,7 +152,7 @@ try {
             $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
             $objects = $storage->listObjects($type, $access);
-            if ($type === 'vitals' && !$auth->hasPermission('manage_users')) {
+            if (in_array($type, ['vitals', 'dogs'], true) && !$auth->hasPermission('manage_users')) {
                 $currentUser = $auth->currentUser();
                 $username = is_array($currentUser) ? (string) ($currentUser['username'] ?? '') : '';
                 $objects = array_values(array_filter($objects, static function (array $object) use ($username): bool {
@@ -181,7 +181,7 @@ try {
             $type = (string) ($_GET['type'] ?? '');
             $id = (string) ($_GET['id'] ?? '');
             $object = $storage->readObject($type, $id, $access);
-            require_vital_owner($auth, $type, $object);
+            require_owned_object($auth, $type, $object);
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -221,7 +221,7 @@ try {
             $payload = is_array($body['object'] ?? null) ? $body['object'] : (is_array($body['patch'] ?? null) ? $body['patch'] : []);
             $baseRevision = (int) ($body['base_revision'] ?? 0);
             $initialWrite = ($body['initial_revision'] ?? false) === true;
-            require_vital_owner($auth, $type, $storage->readObject($type, $id, object_access($auth)));
+            require_owned_object($auth, $type, $storage->readObject($type, $id, object_access($auth)));
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -237,7 +237,7 @@ try {
             $type = (string) ($body['type'] ?? '');
             $id = (string) ($body['id'] ?? '');
             $baseRevision = (int) ($body['base_revision'] ?? 0);
-            require_vital_owner($auth, $type, $storage->readObject($type, $id, object_access($auth)));
+            require_owned_object($auth, $type, $storage->readObject($type, $id, object_access($auth)));
             Http::json([
                 'ok' => true,
                 'type' => $type,

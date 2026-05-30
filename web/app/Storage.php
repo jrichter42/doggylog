@@ -8,13 +8,20 @@ use InvalidArgumentException;
 final class Storage
 {
     private const COLLECTIONS = [
+        'dogs' => 'dogs',
         'vitals' => 'vitals',
     ];
 
     private const FIELD_SCHEMAS = [
+        'dogs' => [
+            'owner_username' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+        ],
         'vitals' => [
             'measured_at' => ['type' => 'datetime-local', 'default' => '', 'visibility' => 'private'],
             'owner_username' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'dog_id' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'dog_name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
             'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
             'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
@@ -205,8 +212,13 @@ final class Storage
             '_modifiedBy' => $username,
             '_deleted' => false,
         ]);
-        if ($type === 'vitals') {
+        if ($type === 'vitals' || $type === 'dogs') {
             $object['owner_username'] = $username;
+        }
+        if ($type === 'dogs') {
+            $object['name'] = trim((string) ($object['name'] ?? '')) !== '' ? trim((string) $object['name']) : 'Mein Hund';
+        }
+        if ($type === 'vitals') {
             $object['dog_name'] = trim((string) ($object['dog_name'] ?? '')) !== '' ? trim((string) $object['dog_name']) : 'Mein Hund';
         }
 
@@ -337,6 +349,10 @@ final class Storage
                 continue;
             }
 
+            if ($field === 'owner_username') {
+                continue;
+            }
+
             $visibility = (string) (self::FIELD_SCHEMAS[$type][$field]['visibility'] ?? 'private');
             if (!$this->canReadVisibility($visibility, $access)) {
                 throw new InvalidArgumentException('Permission is required for this field.');
@@ -395,6 +411,12 @@ final class Storage
                     throw new InvalidArgumentException('Measurement location is invalid.');
                 }
                 $normalized[$field] = $location;
+                continue;
+            }
+
+            if ($type === 'dogs' && $field === 'name') {
+                $name = trim((string) $value);
+                $normalized[$field] = $name !== '' ? $name : 'Mein Hund';
                 continue;
             }
 

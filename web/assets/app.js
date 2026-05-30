@@ -14,6 +14,7 @@ const modes = {
 const state = {
   status: null,
   entries: [],
+  dogs: [],
   measureType: 'breath',
   mode: 'resting',
   duration: 30,
@@ -41,7 +42,8 @@ const els = {
   loginEmailState: $('loginEmailState'),
   authMessage: $('authMessage'),
   workspace: $('workspace'),
-  dogNameInput: $('dogNameInput'),
+  accountLink: $('accountLink'),
+  dogSelect: $('dogSelect'),
   modeButtons: $('modeButtons'),
   tapButton: $('tapButton'),
   tapButtonMain: $('tapButtonMain'),
@@ -59,8 +61,6 @@ const els = {
   saveState: $('saveState'),
   refreshButton: $('refreshButton'),
   entriesList: $('entriesList'),
-  selfSetupButton: $('selfSetupButton'),
-  selfSetupResult: $('selfSetupResult'),
   adminPanel: $('adminPanel'),
   createUserForm: $('createUserForm'),
   setupResult: $('setupResult'),
@@ -194,6 +194,7 @@ async function refresh() {
   renderShell();
   renderMeasurementControls();
   if (state.status.auth?.user) {
+    await loadDogs();
     await loadEntries();
     if (state.status.auth.user.permissions.includes('manage_users')) await loadUsers();
   }
@@ -207,6 +208,7 @@ function renderShell() {
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
   els.authScreen.hidden = Boolean(user);
   els.workspace.hidden = !user;
+  els.accountLink.hidden = !user;
   els.loginButton.hidden = Boolean(user);
   els.logoutButton.hidden = !user;
   els.setupForm.hidden = !setup || Boolean(user);
@@ -332,6 +334,29 @@ async function loadEntries() {
   renderEntries();
 }
 
+async function loadDogs() {
+  const result = await api('objects', { query: { type: 'dogs' } });
+  state.dogs = result.objects || [];
+  if (state.dogs.length === 0) {
+    const created = await api('object-create', {
+      method: 'POST',
+      body: { type: 'dogs', object: { name: 'Mein Hund' } },
+    });
+    state.dogs = [created.object];
+  }
+  renderDogSelect();
+}
+
+function renderDogSelect() {
+  const selected = els.dogSelect.value || state.dogs[0]?._id || '';
+  els.dogSelect.innerHTML = state.dogs.map((dog) => (
+    `<option value="${escapeHtml(dog._id)}">${escapeHtml(dog.name || 'Mein Hund')}</option>`
+  )).join('');
+  if (state.dogs.some((dog) => dog._id === selected)) {
+    els.dogSelect.value = selected;
+  }
+}
+
 function renderEntries() {
   if (state.entries.length === 0) {
     els.entriesList.innerHTML = '<p class="muted">Noch keine Messungen.</p>';
@@ -355,6 +380,7 @@ function renderEntries() {
             <span class="chip">${label} ${rate}</span>
             <span class="chip">${modeLabel(type, entry.mode)}</span>
             <span class="chip">${locationLabel(entry.location)}</span>
+            <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Loeschen</button>
           </div>
         </div>
         ${context}
@@ -362,6 +388,10 @@ function renderEntries() {
       </article>
     `;
   }).join('');
+
+  els.entriesList.querySelectorAll('[data-delete-entry]').forEach((button) => {
+    button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
+  });
 }
 
 async function loadUsers() {
@@ -378,13 +408,14 @@ async function saveEntry(event) {
   event.preventDefault();
   if (state.result === null) return;
 
-  localStorage.setItem('doggylog.dogName', els.dogNameInput.value.trim() || 'Mein Hund');
+  const dog = state.dogs.find((item) => item._id === els.dogSelect.value) || state.dogs[0];
   els.saveState.hidden = false;
   els.saveState.textContent = 'Speichere...';
 
   const object = {
     measured_at: els.measuredAtInput.value || new Date().toISOString(),
-    dog_name: els.dogNameInput.value.trim() || 'Mein Hund',
+    dog_id: dog?._id || '',
+    dog_name: dog?.name || 'Mein Hund',
     measurement_type: state.measureType,
     mode: state.mode,
     duration_seconds: state.duration,
@@ -405,8 +436,11 @@ async function saveEntry(event) {
   await loadEntries();
 }
 
-function setDefaultDog() {
-  els.dogNameInput.value = localStorage.getItem('doggylog.dogName') || 'Mein Hund';
+async function deleteEntry(id, revision) {
+  if (!id || !revision) return;
+  if (!window.confirm('Messung loeschen?')) return;
+  await api('object-delete', { method: 'POST', body: { type: 'vitals', id, base_revision: revision } });
+  await loadEntries();
 }
 
 function formatDate(value) {
@@ -474,16 +508,6 @@ els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((erro
   els.saveState.textContent = error.message;
 }));
 els.refreshButton.addEventListener('click', () => loadEntries().catch((error) => setMessage(error.message, true)));
-els.selfSetupButton.addEventListener('click', async () => {
-  els.selfSetupResult.hidden = false;
-  els.selfSetupResult.textContent = 'Erstelle Link...';
-  try {
-    const result = await api('account-create-setup-token', { method: 'POST', body: {} });
-    els.selfSetupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
-  } catch (error) {
-    els.selfSetupResult.textContent = error.message;
-  }
-});
 els.createUserForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -501,7 +525,6 @@ els.createUserForm.addEventListener('submit', async (event) => {
   await loadUsers();
 });
 
-setDefaultDog();
 renderMeasurementControls();
 
 const params = new URLSearchParams(window.location.search);
