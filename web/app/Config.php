@@ -22,7 +22,7 @@ final class Config
                 'from_address' => '',
                 'from_name' => 'Doggy Log',
                 'reply_to' => '',
-                'login_subject' => 'Login-Link fuer Doggy Log',
+                'login_subject' => 'Login-Link für Doggy Log',
             ],
         ];
 

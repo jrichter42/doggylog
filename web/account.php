@@ -37,7 +37,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
             <h2>Zugang</h2>
             <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
           </div>
-          <p class="muted">Einmaliger Link fuer weiteren Passkey dieses Benutzers.</p>
+          <p class="muted">Einmaliger Link für weiteren Passkey dieses Benutzers.</p>
           <p class="setup-link" id="selfSetupResult" hidden></p>
         </section>
 

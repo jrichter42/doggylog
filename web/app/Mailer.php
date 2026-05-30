@@ -21,7 +21,7 @@ final class Mailer
         $this->fromAddress = $this->cleanHeader((string) ($mail['from_address'] ?? ''));
         $this->fromName = $this->cleanHeader((string) ($mail['from_name'] ?? ($config['name'] ?? 'Doggy Log')));
         $this->replyTo = $this->cleanHeader((string) ($mail['reply_to'] ?? ''));
-        $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link fuer Doggy Log'));
+        $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link für Doggy Log'));
         $this->timezone = is_string($config['timezone'] ?? null) ? $config['timezone'] : 'UTC';
         $this->enabled = (bool) ($mail['enabled'] ?? false)
             && filter_var($this->fromAddress, FILTER_VALIDATE_EMAIL) !== false;

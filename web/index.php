@@ -29,7 +29,7 @@ $configWarnings = array_map(
         <h1><?= $appName ?></h1>
       </div>
       <div class="session">
-        <span id="connectionStatus">Laedt...</span>
+        <span id="connectionStatus">Lädt...</span>
         <a class="button-link" id="accountLink" href="account.php" hidden>Konto</a>
         <button id="loginButton" type="button" hidden>Login</button>
         <button id="logoutButton" type="button" hidden>Logout</button>
@@ -49,11 +49,11 @@ $configWarnings = array_map(
       <section class="auth-card" id="authScreen" hidden>
         <div id="loginPanel">
           <h2>Einloggen</h2>
-          <p>Passkey nutzen. Optional Email-Link, wenn konfiguriert.</p>
+          <p>Passkey nutzen. Optional E-Mail-Link, wenn konfiguriert.</p>
           <button class="primary" id="passkeyLoginButton" type="button">Mit Passkey einloggen</button>
           <form id="loginEmailForm" hidden>
             <label>
-              Email
+              E-Mail
               <input id="loginEmailInput" name="email" type="email" autocomplete="email">
             </label>
             <button type="submit">Login-Link senden</button>
@@ -160,7 +160,7 @@ $configWarnings = array_map(
       </section>
     </main>
 
-    <footer>v<?= $version ?></footer>
+    <footer><a href="https://github.doggylog.kimvosen.de">v<?= $version ?></a></footer>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>

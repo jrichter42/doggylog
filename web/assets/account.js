@@ -41,7 +41,7 @@ async function api(action, options = {}) {
   }
 
   const response = await fetch(url, init);
-  const data = await response.json().catch(() => ({ ok: false, error: 'Ungueltige Serverantwort' }));
+  const data = await response.json().catch(() => ({ ok: false, error: 'Ungültige Serverantwort' }));
   if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
@@ -80,7 +80,7 @@ function renderDogs() {
       </label>
       <div class="entry-actions">
         <button class="primary" type="submit">Speichern</button>
-        <button class="delete-entry" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">Loeschen</button>
+        <button class="delete-entry" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">Löschen</button>
       </div>
     </form>
   `).join('');
@@ -115,9 +115,9 @@ async function saveDog(event) {
 
 async function deleteDog(id, revision) {
   if (!id || !revision) return;
-  if (!window.confirm('Hund loeschen? Bestehende Messungen bleiben im Verlauf mit gespeichertem Namen.')) return;
+  if (!window.confirm('Hund löschen? Bestehende Messungen bleiben im Verlauf mit gespeichertem Namen.')) return;
   await api('object-delete', { method: 'POST', body: { type: 'dogs', id, base_revision: revision } });
-  setMessage('Hund geloescht.');
+  setMessage('Hund gelöscht.');
   await loadDogs();
 }
 

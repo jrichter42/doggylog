@@ -1,13 +1,13 @@
 const modes = {
   breath: [
     ['resting', 'Ruhend'],
-    ['active', 'Aktivitaet'],
+    ['active', 'Aktivität'],
     ['panting', 'Hechelnd'],
     ['sleeping', 'Schlafend'],
   ],
   pulse: [
     ['resting', 'Ruhepuls'],
-    ['active', 'Aktivitaetspuls'],
+    ['active', 'Aktivitätspuls'],
   ],
 };
 
@@ -89,8 +89,8 @@ function requirePasskeys() {
   if (passkeysAvailable()) return;
   const reason = window.isSecureContext !== true
     ? 'Passkeys brauchen HTTPS oder localhost.'
-    : 'Dieser Browser unterstuetzt Passkeys hier nicht.';
-  throw new Error(`${reason} Oeffne die Seite direkt in Safari, Chrome, Edge oder Firefox.`);
+    : 'Dieser Browser unterstützt Passkeys hier nicht.';
+  throw new Error(`${reason} Öffne die Seite direkt in Safari, Chrome, Edge oder Firefox.`);
 }
 
 async function api(action, options = {}) {
@@ -110,7 +110,7 @@ async function api(action, options = {}) {
   }
 
   const response = await fetch(url, init);
-  const data = await response.json().catch(() => ({ ok: false, error: 'Ungueltige Serverantwort' }));
+  const data = await response.json().catch(() => ({ ok: false, error: 'Ungültige Serverantwort' }));
   if (!response.ok || data.ok === false) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
@@ -222,7 +222,7 @@ function renderShell() {
   if (state.status.auth?.bootstrap_pending && !setup && !user) {
     setMessage('Initiales Setup offen. Lies web/bootstrap_setup.txt auf Server.', false);
   } else if (!user && !passkeysAvailable()) {
-    setMessage('Passkeys hier nicht verfuegbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
+    setMessage('Passkeys hier nicht verfügbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
   }
 }
 
@@ -316,7 +316,7 @@ function pulseFeedback() {
 
 function updateMeterView() {
   const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
-  const unit = state.measureType === 'breath' ? 'Atemzuege/min' : 'Schlaege/min';
+  const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Schläge/min';
   const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
@@ -380,7 +380,7 @@ function renderEntries() {
             <span class="chip">${label} ${rate}</span>
             <span class="chip">${modeLabel(type, entry.mode)}</span>
             <span class="chip">${locationLabel(entry.location)}</span>
-            <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Loeschen</button>
+            <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
           </div>
         </div>
         ${context}
@@ -438,7 +438,7 @@ async function saveEntry(event) {
 
 async function deleteEntry(id, revision) {
   if (!id || !revision) return;
-  if (!window.confirm('Messung loeschen?')) return;
+  if (!window.confirm('Messung löschen?')) return;
   await api('object-delete', { method: 'POST', body: { type: 'vitals', id, base_revision: revision } });
   await loadEntries();
 }
