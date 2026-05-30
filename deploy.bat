@@ -15,7 +15,7 @@ if not exist "%DEST%" (
     exit /b 1
 )
 
-call :run %ROBO% "%SRC%" "%DEST%" /MIR || exit /b 1
+call :run %ROBO% "%SRC%" "%DEST%" /MIR /XD "var" "data" "config" /XF "bootstrap_setup.txt" || exit /b 1
 
 exit /b 0
 

@@ -50,6 +50,25 @@ function csrf() {
   return state.status?.auth?.csrf || '';
 }
 
+function passkeysAvailable() {
+  return window.isSecureContext === true
+    && window.PublicKeyCredential !== undefined
+    && navigator.credentials !== undefined
+    && typeof navigator.credentials.create === 'function'
+    && typeof navigator.credentials.get === 'function';
+}
+
+function requirePasskeys() {
+  if (passkeysAvailable()) {
+    return;
+  }
+
+  const reason = window.isSecureContext !== true
+    ? 'Passkeys brauchen HTTPS oder localhost.'
+    : 'Dieser Browser unterstuetzt Passkeys hier nicht.';
+  throw new Error(`${reason} Oeffne die Seite direkt in Safari, Chrome, Edge oder Firefox.`);
+}
+
 async function api(action, options = {}) {
   const url = new URL('api.php', window.location.href);
   url.searchParams.set('action', action);
@@ -137,6 +156,7 @@ function serializeCredential(credential) {
 
 async function passkeyLogin() {
   setMessage('');
+  requirePasskeys();
   const options = await api('auth-login-options', { method: 'POST', body: {} });
   const credential = await navigator.credentials.get({ publicKey: decodePublicKeyOptions(options.publicKey) });
   const result = await api('auth-login-verify', {
@@ -150,6 +170,7 @@ async function passkeyLogin() {
 async function passkeySetup(event) {
   event.preventDefault();
   setMessage('');
+  requirePasskeys();
   const setup = els.setupInput.value;
   const options = await api('auth-register-options', { method: 'POST', body: { setup } });
   const credential = await navigator.credentials.create({ publicKey: decodePublicKeyOptions(options.publicKey) });
@@ -195,9 +216,13 @@ function renderShell() {
   els.setupInput.value = setup || '';
   els.loginEmailForm.hidden = !state.status?.mail?.login_enabled;
   els.adminPanel.hidden = !user?.permissions?.includes('manage_users');
+  els.passkeyLoginButton.disabled = !passkeysAvailable();
+  els.setupForm.querySelector('button[type="submit"]').disabled = !passkeysAvailable();
 
   if (state.status.auth?.bootstrap_pending && !setup && !user) {
     setMessage('Initiales Setup ist offen. Lies web/bootstrap_setup.txt auf dem Server.', false);
+  } else if (!user && !passkeysAvailable()) {
+    setMessage('Passkeys sind hier nicht verfuegbar. Nutze HTTPS und einen normalen Browser, keinen In-App-Browser.', true);
   }
 }
 
