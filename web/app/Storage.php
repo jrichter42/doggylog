@@ -391,7 +391,7 @@ final class Storage
 
             if ($field === 'measurement_type') {
                 $typeValue = trim((string) $value);
-                if (!in_array($typeValue, ['breath', 'pulse'], true)) {
+                if (!in_array($typeValue, ['breath', 'pulse', 'both'], true)) {
                     throw new InvalidArgumentException('Measurement type is invalid.');
                 }
                 $normalized[$field] = $typeValue;

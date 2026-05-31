@@ -26,6 +26,7 @@ const state = {
   finishTimer: null,
   taps: 0,
   result: null,
+  results: { breath: null, pulse: null },
   editingEntryId: null,
   saveTimers: new Map(),
 };
@@ -251,7 +252,12 @@ function renderView() {
 
 function renderMeasurementControls() {
   document.querySelectorAll('[data-measure-type]').forEach((button) => {
-    button.classList.toggle('is-active', button.dataset.measureType === state.measureType);
+    const type = button.dataset.measureType;
+    const recorded = state.results[type] !== null;
+    button.classList.toggle('is-active', type === state.measureType);
+    button.classList.toggle('has-result', recorded);
+    button.setAttribute('aria-pressed', String(type === state.measureType));
+    button.dataset.recorded = recorded ? 'true' : 'false';
   });
 
   els.modeButtons.innerHTML = modes[state.measureType].map(([value, label]) => (
@@ -295,6 +301,14 @@ function renderContextOptions() {
 }
 
 function resetMeasurement() {
+  resetMeasurementRun();
+  state.results = { breath: null, pulse: null };
+  state.result = null;
+  els.measuredAtInput.value = '';
+  els.saveButton.disabled = true;
+}
+
+function resetMeasurementRun() {
   clearInterval(state.timer);
   clearTimeout(state.finishTimer);
   state.measuring = false;
@@ -302,18 +316,19 @@ function resetMeasurement() {
   state.timer = null;
   state.finishTimer = null;
   state.taps = 0;
-  state.result = null;
+  state.result = state.results[state.measureType];
   els.tapButton.disabled = false;
   els.newMeasurementButton.hidden = true;
-  els.saveButton.disabled = true;
+  els.saveButton.disabled = !hasSavedMeasurement();
   els.saveState.hidden = true;
 }
 
 function startMeasurement() {
-  resetMeasurement();
+  resetMeasurementRun();
   state.measuring = true;
   state.startedAt = Date.now();
   state.taps = 1;
+  els.saveButton.disabled = true;
   pulseFeedback();
   state.timer = setInterval(updateMeterView, 120);
   state.finishTimer = setTimeout(finishMeasurement, state.duration * 1000);
@@ -338,10 +353,12 @@ function finishMeasurement() {
   state.timer = null;
   state.finishTimer = null;
   state.result = Math.round((state.taps / state.duration) * 60);
-  els.measuredAtInput.value = new Date().toISOString();
+  state.results[state.measureType] = state.result;
+  if (!els.measuredAtInput.value) els.measuredAtInput.value = new Date().toISOString();
   els.tapButton.disabled = true;
   els.newMeasurementButton.hidden = false;
   els.saveButton.disabled = false;
+  renderMeasurementControls();
   updateMeterView();
 }
 
@@ -354,6 +371,8 @@ function pulseFeedback() {
 
 function updateMeterView() {
   const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
+  const savedResult = state.results[state.measureType];
+  if (!state.measuring) state.result = savedResult;
   const countLabel = state.measureType === 'breath'
     ? (state.taps === 1 ? 'Atemzug' : 'Atemzüge')
     : (state.taps === 1 ? 'Pulsschlag' : 'Pulsschläge');
@@ -367,6 +386,16 @@ function updateMeterView() {
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
   els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
   els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `Aktuell ${liveRate} ${unit}` : '-- / min');
+}
+
+function hasSavedMeasurement() {
+  return state.results.breath !== null || state.results.pulse !== null;
+}
+
+function savedMeasurementType() {
+  if (state.results.breath !== null && state.results.pulse !== null) return 'both';
+  if (state.results.pulse !== null) return 'pulse';
+  return 'breath';
 }
 
 async function loadEntries() {
@@ -415,8 +444,6 @@ function renderEntries() {
 
   els.entriesList.innerHTML = state.entries.map((entry) => {
     const type = entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
-    const rate = type === 'pulse' ? entry.pulse_per_minute : entry.breaths_per_minute;
-    const label = type === 'pulse' ? 'Puls' : 'Atemfrequenz';
     const context = entry.context ? `<p class="muted">${escapeHtml(entry.context)}</p>` : '';
     const comment = entry.comment || entry.notes ? `<p class="muted">${escapeHtml(entry.comment || entry.notes)}</p>` : '';
     const editing = state.editingEntryId === entry._id;
@@ -428,14 +455,14 @@ function renderEntries() {
             <span class="muted">${formatDate(entry.measured_at || entry._created)}</span>
           </div>
           <div class="numbers">
-            <span class="chip">${label} ${rate}</span>
+            ${measurementChips(entry)}
             <span class="chip">${modeLabel(type, entry.mode)}</span>
             <span class="chip">${locationLabel(entry.location)}</span>
           </div>
         </button>
         ${context}
         ${comment}
-        ${editing ? renderEntryEditor(entry, type, rate) : ''}
+        ${editing ? renderEntryEditor(entry, type) : ''}
       </article>
     `;
   }).join('');
@@ -452,7 +479,18 @@ function renderEntries() {
   });
 }
 
-function renderEntryEditor(entry, type, rate) {
+function measurementChips(entry) {
+  const chips = [];
+  if (entry.breaths_per_minute !== null && entry.breaths_per_minute !== undefined && entry.breaths_per_minute !== '') {
+    chips.push(`<span class="chip">Atemfrequenz ${escapeHtml(entry.breaths_per_minute)}</span>`);
+  }
+  if (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '') {
+    chips.push(`<span class="chip">Puls ${escapeHtml(entry.pulse_per_minute)}</span>`);
+  }
+  return chips.join('') || '<span class="chip">Messung</span>';
+}
+
+function renderEntryEditor(entry, type) {
   const dogOptions = state.dogs.map((dog) => (
     `<option value="${escapeHtml(dog._id)}" ${dog._id === entry.dog_id ? 'selected' : ''}>${escapeHtml(dog.name || 'Mein Hund')}</option>`
   )).join('');
@@ -482,11 +520,16 @@ function renderEntryEditor(entry, type, rate) {
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="measurement_type">
           <option value="breath" ${type === 'breath' ? 'selected' : ''}>Atemfrequenz</option>
           <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Puls</option>
+          <option value="both" ${type === 'both' ? 'selected' : ''}>Beides</option>
         </select>
       </label>
       <label>
-        Wert
-        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="rate" value="${escapeHtml(rate ?? '')}">
+        Atemfrequenz
+        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
+      </label>
+      <label>
+        Puls
+        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
       </label>
       <label>
         Modus
@@ -541,7 +584,7 @@ async function saveEntryEdit(id) {
 
   const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [input.dataset.field, input.value]));
   const dog = state.dogs.find((item) => item._id === values.dog_id);
-  const measurementType = values.measurement_type === 'pulse' ? 'pulse' : 'breath';
+  const measurementType = ['breath', 'pulse', 'both'].includes(values.measurement_type) ? values.measurement_type : 'breath';
   const object = {
     measured_at: values.measured_at,
     dog_id: values.dog_id || '',
@@ -552,8 +595,8 @@ async function saveEntryEdit(id) {
     location: values.location,
     context: values.context,
     comment: values.comment,
-    breaths_per_minute: measurementType === 'breath' ? Number(values.rate) : null,
-    pulse_per_minute: measurementType === 'pulse' ? Number(values.rate) : null,
+    breaths_per_minute: measurementType === 'pulse' ? null : values.breaths_per_minute,
+    pulse_per_minute: measurementType === 'breath' ? null : values.pulse_per_minute,
   };
 
   const result = await api('object-update', {
@@ -567,7 +610,7 @@ async function saveEntryEdit(id) {
 
 async function saveEntry(event) {
   event.preventDefault();
-  if (state.result === null) return;
+  if (!hasSavedMeasurement()) return;
 
   const dog = state.dogs.find((item) => item._id === els.dogSelect.value) || state.dogs[0];
   els.saveState.hidden = false;
@@ -577,22 +620,21 @@ async function saveEntry(event) {
     measured_at: els.measuredAtInput.value || new Date().toISOString(),
     dog_id: dog?._id || '',
     dog_name: dog?.name || 'Mein Hund',
-    measurement_type: state.measureType,
+    measurement_type: savedMeasurementType(),
     mode: state.mode,
     duration_seconds: state.duration,
     location: state.location,
     context: els.contextInput.value,
     comment: els.commentInput.value,
+    breaths_per_minute: state.results.breath,
+    pulse_per_minute: state.results.pulse,
   };
-
-  if (state.measureType === 'pulse') object.pulse_per_minute = state.result;
-  if (state.measureType === 'breath') object.breaths_per_minute = state.result;
 
   await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
   els.commentInput.value = '';
   resetMeasurement();
-  updateMeterView();
+  renderMeasurementControls();
   await loadEntries();
 }
 
@@ -617,7 +659,7 @@ function dateTimeLocalValue(value) {
 }
 
 function modeLabel(type, value) {
-  return Object.fromEntries(modes[type] || [])[value] || value || 'Ruhend';
+  return Object.fromEntries(modes[type] || sharedModes)[value] || value || 'Ruhend';
 }
 
 function locationLabel(value) {
@@ -658,8 +700,7 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
 document.querySelectorAll('[data-measure-type]').forEach((button) => {
   button.addEventListener('click', () => {
     state.measureType = button.dataset.measureType;
-    state.mode = modes[state.measureType][0][0];
-    resetMeasurement();
+    resetMeasurementRun();
     renderMeasurementControls();
   });
 });
@@ -694,7 +735,7 @@ async function addContext() {
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {
   resetMeasurement();
-  updateMeterView();
+  renderMeasurementControls();
 });
 els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((error) => {
   els.saveState.hidden = false;

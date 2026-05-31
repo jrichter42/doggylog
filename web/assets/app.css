@@ -273,6 +273,23 @@ main {
   font-weight: 850;
 }
 
+.big-switch button {
+  position: relative;
+  padding-right: 2.9rem;
+}
+
+.big-switch button.has-result::after {
+  content: "\2713";
+  position: absolute;
+  right: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ok);
+  font-size: 2rem;
+  font-weight: 1000;
+  line-height: 1;
+}
+
 .is-active {
   border-color: var(--accent);
   background: #123b3a;
