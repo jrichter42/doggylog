@@ -92,7 +92,11 @@ $configWarnings = array_map(
             <span class="control-title">Messung</span>
             <div class="big-switch" role="group" aria-label="Messart">
               <button type="button" class="is-active" data-measure-type="breath">Atemfrequenz</button>
-              <button type="button" data-measure-type="pulse">Puls</button>
+              <button class="swap-type-button" id="swapMeasurementTypesButton" type="button" aria-label="Atemfrequenz und Puls tauschen" title="Atemfrequenz und Puls tauschen">
+                <span aria-hidden="true">&#11013;</span>
+                <span aria-hidden="true">&#10145;</span>
+              </button>
+              <button type="button" data-measure-type="pulse">Pulse</button>
             </div>
           </div>
 

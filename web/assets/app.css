@@ -271,7 +271,7 @@ main {
 }
 
 .big-switch {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
 .segmented {
@@ -322,9 +322,21 @@ main {
   color: #fda4af;
 }
 
-.big-switch button {
+.big-switch button:not(.swap-type-button) {
   position: relative;
   padding-right: 2.9rem;
+}
+
+.swap-type-button {
+  display: grid;
+  gap: 0;
+  place-content: center;
+  min-height: 48px;
+  width: 48px;
+  padding: 0;
+  font-size: 1.05rem;
+  font-weight: 1000;
+  line-height: 1;
 }
 
 .big-switch button.has-result::after {
@@ -669,6 +681,12 @@ textarea {
   color: #fda4af;
   min-height: 36px;
   padding: 0.35rem 0.6rem;
+}
+
+.danger-action.is-confirming {
+  border-color: #f43f5e;
+  background: #3b1116;
+  color: #fda4af;
 }
 
 .entry-actions {

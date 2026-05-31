@@ -35,6 +35,7 @@ const state = {
   results: { breath: null, pulse: null },
   resultTaps: { breath: 0, pulse: 0 },
   resultDurations: { breath: null, pulse: null },
+  resetConfirmation: false,
   editingEntryId: null,
   saveTimers: new Map(),
 };
@@ -59,6 +60,7 @@ const els = {
   accountLink: $('accountLink'),
   measurementView: $('measurementView'),
   recordsView: $('recordsView'),
+  swapMeasurementTypesButton: $('swapMeasurementTypesButton'),
   dogSelectLabel: $('dogSelectLabel'),
   dogSelect: $('dogSelect'),
   dogButtons: $('dogButtons'),
@@ -303,7 +305,9 @@ function renderMeasurementControls() {
     button.classList.toggle('has-result', recorded);
     button.setAttribute('aria-pressed', String(type === state.measureType));
     button.dataset.recorded = recorded ? 'true' : 'false';
+    button.disabled = state.measuring;
   });
+  els.swapMeasurementTypesButton.disabled = state.measuring;
 
   if (!modes[state.measureType].some(([value]) => value === state.mode)) {
     state.mode = modes[state.measureType][0][0];
@@ -387,17 +391,33 @@ function pillButton({ value, label, active, deleteMode, deleteCandidate, attr })
 }
 
 function resetMeasurement() {
-  resetMeasurementRun();
-  state.results = { breath: null, pulse: null };
-  state.resultTaps = { breath: 0, pulse: 0 };
-  state.resultDurations = { breath: null, pulse: null };
+  setResetConfirmation(false);
+  state.results[state.measureType] = null;
+  state.resultTaps[state.measureType] = 0;
+  state.resultDurations[state.measureType] = null;
   state.result = null;
   state.taps = 0;
-  els.measuredAtInput.value = '';
-  els.saveButton.disabled = true;
+  state.measuring = false;
+  state.startedAt = 0;
+  clearInterval(state.timer);
+  clearTimeout(state.finishTimer);
+  state.timer = null;
+  state.finishTimer = null;
+  if (!hasSavedMeasurement()) els.measuredAtInput.value = '';
+  els.tapButton.disabled = false;
+  els.newMeasurementButton.hidden = true;
+  els.saveButton.disabled = !hasSavedMeasurement();
+  els.saveState.hidden = true;
+}
+
+function setResetConfirmation(active) {
+  state.resetConfirmation = active;
+  els.newMeasurementButton.classList.toggle('is-confirming', active);
+  els.newMeasurementButton.textContent = active ? 'Wirklich neu?' : 'Neue Messung';
 }
 
 function resetMeasurementRun() {
+  setResetConfirmation(false);
   clearInterval(state.timer);
   clearTimeout(state.finishTimer);
   state.measuring = false;
@@ -415,9 +435,10 @@ function resetMeasurementRun() {
 }
 
 function syncMeasurementSelection() {
+  setResetConfirmation(false);
   if (state.measuring) return;
   state.result = state.results[state.measureType];
-  state.taps = state.result !== null ? state.resultTaps[state.measureType] : state.taps;
+  state.taps = state.result !== null ? state.resultTaps[state.measureType] : 0;
   const savedDuration = state.resultDurations[state.measureType];
   if (state.result !== null && savedDuration !== null) state.duration = savedDuration;
   els.tapButton.disabled = state.result !== null;
@@ -425,7 +446,18 @@ function syncMeasurementSelection() {
   els.saveButton.disabled = !hasSavedMeasurement();
 }
 
+function swapMeasurementTypes() {
+  setResetConfirmation(false);
+  if (state.measuring) return;
+  [state.results.breath, state.results.pulse] = [state.results.pulse, state.results.breath];
+  [state.resultTaps.breath, state.resultTaps.pulse] = [state.resultTaps.pulse, state.resultTaps.breath];
+  [state.resultDurations.breath, state.resultDurations.pulse] = [state.resultDurations.pulse, state.resultDurations.breath];
+  syncMeasurementSelection();
+  renderMeasurementControls();
+}
+
 function startMeasurement() {
+  setResetConfirmation(false);
   state.results[state.measureType] = null;
   state.resultTaps[state.measureType] = 0;
   state.resultDurations[state.measureType] = null;
@@ -477,16 +509,16 @@ function pulseFeedback() {
 }
 
 function updateMeterView() {
-  const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
+  const label = state.measureType === 'breath' ? 'Atemzug' : 'Puls';
   const savedResult = state.results[state.measureType];
   if (!state.measuring) {
     state.result = savedResult;
-    state.taps = savedResult !== null ? state.resultTaps[state.measureType] : state.taps;
+    state.taps = savedResult !== null ? state.resultTaps[state.measureType] : 0;
   }
   const countLabel = state.measureType === 'breath'
     ? (state.taps === 1 ? 'Atemzug' : 'Atemzüge')
-    : (state.taps === 1 ? 'Pulsschlag' : 'Pulsschläge');
-  const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Schläge/min';
+    : (state.taps === 1 ? 'Puls' : 'Pulse');
+  const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Pulse/min';
   const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
@@ -495,7 +527,7 @@ function updateMeterView() {
   els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
   els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
-  els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `Aktuell ${liveRate} ${unit}` : '-- / min');
+  els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `${liveRate} ${unit}` : unit);
 }
 
 function hasSavedMeasurement() {
@@ -633,7 +665,7 @@ function measurementChips(entry) {
     chips.push(`<span class="chip">Atemfrequenz ${escapeHtml(entry.breaths_per_minute)}</span>`);
   }
   if (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '') {
-    chips.push(`<span class="chip">Puls ${escapeHtml(entry.pulse_per_minute)}</span>`);
+    chips.push(`<span class="chip">Pulse ${escapeHtml(entry.pulse_per_minute)}</span>`);
   }
   return chips.join('') || '<span class="chip">Messung</span>';
 }
@@ -669,7 +701,7 @@ function renderEntryEditor(entry, type) {
         Messart
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="measurement_type">
           <option value="breath" ${type === 'breath' ? 'selected' : ''}>Atemfrequenz</option>
-          <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Puls</option>
+          <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Pulse</option>
           <option value="both" ${type === 'both' ? 'selected' : ''}>Beides</option>
         </select>
       </label>
@@ -678,7 +710,7 @@ function renderEntryEditor(entry, type) {
         <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
       </label>
       <label>
-        Puls
+        Pulse
         <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
       </label>
       <label>
@@ -879,13 +911,16 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
 
 document.querySelectorAll('[data-measure-type]').forEach((button) => {
   button.addEventListener('click', () => {
+    if (state.measuring) return;
     state.measureType = button.dataset.measureType;
     syncMeasurementSelection();
     renderMeasurementControls();
   });
 });
+els.swapMeasurementTypesButton.addEventListener('click', swapMeasurementTypes);
 document.querySelectorAll('[data-duration]').forEach((button) => {
   button.addEventListener('click', () => {
+    setResetConfirmation(false);
     if (state.measuring || state.results[state.measureType] !== null) {
       renderMeasurementControls();
       return;
@@ -976,9 +1011,15 @@ async function handleLocationClick(location) {
 }
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {
+  if (!state.resetConfirmation) {
+    setResetConfirmation(true);
+    els.newMeasurementButton.focus();
+    return;
+  }
   resetMeasurement();
   renderMeasurementControls();
 });
+els.newMeasurementButton.addEventListener('blur', () => setResetConfirmation(false));
 els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((error) => {
   els.saveState.hidden = false;
   els.saveState.textContent = error.message;
