@@ -513,7 +513,6 @@ function pulseFeedback() {
   els.tapButton.classList.remove('tap-hit');
   void els.tapButton.offsetWidth;
   els.tapButton.classList.add('tap-hit');
-  if (navigator.vibrate) navigator.vibrate(18);
 }
 
 function updateMeterView() {

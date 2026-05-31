@@ -471,8 +471,8 @@ main {
 }
 
 .tap-button.tap-hit::after {
-  animation: tap-ring 320ms ease-out;
-  border: 3px solid var(--ok);
+  animation: tap-ring 220ms ease-out;
+  border: 2px solid rgba(134, 239, 172, 0.55);
   border-radius: 8px;
   content: "";
   inset: 0.35rem;
@@ -499,14 +499,14 @@ main {
 }
 
 @keyframes tap-hit {
-  0% { transform: scale(0.98); background: #145c57; }
-  55% { transform: scale(1.015); background: #168476; }
+  0% { transform: scale(0.992); background: #103d3b; }
+  60% { transform: scale(1.003); background: #124743; }
   100% { transform: scale(1); background: #0f3736; }
 }
 
 @keyframes tap-ring {
-  0% { opacity: 1; transform: scale(0.82); }
-  100% { opacity: 0; transform: scale(1.08); }
+  0% { opacity: 0.65; transform: scale(0.96); }
+  100% { opacity: 0; transform: scale(1.02); }
 }
 
 .result {
