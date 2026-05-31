@@ -169,7 +169,7 @@ try {
 
         case 'object-create':
             Http::requireMethod('POST');
-            $editor = require_permission($auth, 'write');
+            $editor = require_user($auth);
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
             $type = (string) ($body['type'] ?? '');
@@ -183,7 +183,7 @@ try {
 
         case 'object-update':
             Http::requireMethod('POST');
-            $editor = require_permission($auth, 'write');
+            $editor = require_user($auth);
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
             $type = (string) ($body['type'] ?? '');
@@ -201,7 +201,7 @@ try {
 
         case 'object-delete':
             Http::requireMethod('POST');
-            $editor = require_permission($auth, 'write');
+            $editor = require_user($auth);
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
             $type = (string) ($body['type'] ?? '');
@@ -450,7 +450,7 @@ try {
                 Http::json(['ok' => false, 'error' => 'Username is required'], 400);
             }
 
-            $permissions = is_array($body['permissions'] ?? null) ? $body['permissions'] : ['read'];
+            $permissions = is_array($body['permissions'] ?? null) ? $body['permissions'] : [];
             $user = $auth->createUser(
                 $username,
                 (string) ($body['display_name'] ?? ''),

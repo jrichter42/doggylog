@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class AuthStore
 {
-    public const PERMISSIONS = ['read', 'write', 'sensitive', 'manage_users'];
+    public const PERMISSIONS = ['manage_users'];
 
     private string $authPath;
     private string $usersPath;
@@ -1121,7 +1121,7 @@ final class AuthStore
         $normalized = [];
         foreach ($permissions as $permission) {
             if (!is_string($permission) || !in_array($permission, self::PERMISSIONS, true)) {
-                throw new InvalidArgumentException('Unknown permission.');
+                continue;
             }
 
             $normalized[] = $permission;

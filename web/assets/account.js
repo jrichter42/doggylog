@@ -139,7 +139,7 @@ async function loadUsers() {
   els.userList.innerHTML = (result.users || []).map((user) => `
     <div class="user-row">
       <strong>${escapeHtml(user.display_name || user.username)}</strong>
-      <span class="muted">${escapeHtml(user.username)} - ${user.permissions.join(', ')}</span>
+      <span class="muted">${escapeHtml(user.username)} - ${user.enabled ? 'aktiv' : 'deaktiviert'}${user.permissions.includes('manage_users') ? ' - Benutzerverwaltung' : ''}</span>
     </div>
   `).join('');
 }
@@ -208,7 +208,7 @@ els.createUserForm.addEventListener('submit', async (event) => {
     body: {
       username: form.get('username'),
       display_name: form.get('display_name'),
-      permissions: ['read', 'write'],
+      permissions: form.get('manage_users') === '1' ? ['manage_users'] : [],
     },
   });
   els.setupResult.hidden = false;
