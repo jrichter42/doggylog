@@ -48,7 +48,9 @@ const els = {
   accountLink: $('accountLink'),
   measurementView: $('measurementView'),
   recordsView: $('recordsView'),
+  dogSelectLabel: $('dogSelectLabel'),
   dogSelect: $('dogSelect'),
+  dogNameDisplay: $('dogNameDisplay'),
   modeButtons: $('modeButtons'),
   meterStage: $('meterStage'),
   tapButton: $('tapButton'),
@@ -388,11 +390,20 @@ async function loadDogs() {
 
 function renderDogSelect() {
   const selected = els.dogSelect.value || state.dogs[0]?._id || '';
+  const selectedDog = state.dogs.find((dog) => dog._id === selected) || state.dogs[0];
+  const hasMultipleDogs = state.dogs.length > 1;
+
+  els.dogSelectLabel.hidden = !hasMultipleDogs;
+  els.dogNameDisplay.hidden = hasMultipleDogs;
+  els.dogNameDisplay.querySelector('strong').textContent = selectedDog?.name || 'Mein Hund';
+
   els.dogSelect.innerHTML = state.dogs.map((dog) => (
     `<option value="${escapeHtml(dog._id)}">${escapeHtml(dog.name || 'Mein Hund')}</option>`
   )).join('');
   if (state.dogs.some((dog) => dog._id === selected)) {
     els.dogSelect.value = selected;
+  } else if (state.dogs[0]?._id) {
+    els.dogSelect.value = state.dogs[0]._id;
   }
 }
 

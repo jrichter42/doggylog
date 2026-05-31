@@ -76,10 +76,14 @@ $configWarnings = array_map(
       <section class="workspace" id="workspace" hidden>
         <section class="measure-card" id="measurementView">
           <div class="dog-row">
-            <label>
+            <label id="dogSelectLabel">
               Hund
               <select id="dogSelect"></select>
             </label>
+            <div class="dog-name" id="dogNameDisplay" hidden>
+              <span class="control-title">Hund</span>
+              <strong></strong>
+            </div>
           </div>
 
           <div class="choice-block">
@@ -88,11 +92,6 @@ $configWarnings = array_map(
               <button type="button" class="is-active" data-measure-type="breath">Atemfrequenz</button>
               <button type="button" data-measure-type="pulse">Puls</button>
             </div>
-          </div>
-
-          <div class="choice-block">
-            <span class="control-title">Modus</span>
-            <div class="mode-grid" id="modeButtons" role="group" aria-label="Messmodus"></div>
           </div>
 
           <div class="choice-block">
@@ -114,6 +113,11 @@ $configWarnings = array_map(
             </button>
             <output class="result" id="measurementResult">-- / min</output>
             <button class="secondary-action" id="newMeasurementButton" type="button" hidden>Neue Messung</button>
+          </div>
+
+          <div class="choice-block">
+            <span class="control-title">Modus</span>
+            <div class="mode-grid" id="modeButtons" role="group" aria-label="Messmodus"></div>
           </div>
 
           <form class="save-panel" id="entryForm">

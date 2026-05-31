@@ -185,6 +185,15 @@ main {
   max-width: 100%;
 }
 
+.dog-name {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dog-name strong {
+  font-size: 1.05rem;
+}
+
 .choice-block {
   display: grid;
   gap: 0.45rem;
