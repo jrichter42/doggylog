@@ -77,10 +77,11 @@ $configWarnings = array_map(
       <section class="workspace" id="workspace" hidden>
         <section class="measure-card" id="measurementView">
           <div class="dog-row">
-            <label id="dogSelectLabel">
-              Hund
-              <select id="dogSelect"></select>
-            </label>
+            <div class="choice-block" id="dogSelectLabel">
+              <span class="control-title">Hund</span>
+              <input id="dogSelect" type="hidden">
+              <div class="pill-grid dog-buttons" id="dogButtons" role="group" aria-label="Hund"></div>
+            </div>
             <div class="dog-name" id="dogNameDisplay" hidden>
               <span class="control-title">Hund</span>
               <strong></strong>

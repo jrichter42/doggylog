@@ -61,6 +61,7 @@ const els = {
   recordsView: $('recordsView'),
   dogSelectLabel: $('dogSelectLabel'),
   dogSelect: $('dogSelect'),
+  dogButtons: $('dogButtons'),
   dogNameDisplay: $('dogNameDisplay'),
   modeButtons: $('modeButtons'),
   meterStage: $('meterStage'),
@@ -558,19 +559,29 @@ function renderDogSelect() {
   const selected = els.dogSelect.value || state.dogs[0]?._id || '';
   const selectedDog = state.dogs.find((dog) => dog._id === selected) || state.dogs[0];
   const hasMultipleDogs = state.dogs.length > 1;
+  const selectedId = selectedDog?._id || '';
 
   els.dogSelectLabel.hidden = !hasMultipleDogs;
   els.dogNameDisplay.hidden = hasMultipleDogs;
   els.dogNameDisplay.querySelector('strong').textContent = selectedDog?.name || 'Mein Hund';
+  els.dogSelect.value = selectedId;
 
-  els.dogSelect.innerHTML = state.dogs.map((dog) => (
-    `<option value="${escapeHtml(dog._id)}">${escapeHtml(dog.name || 'Mein Hund')}</option>`
+  els.dogButtons.innerHTML = state.dogs.map((dog) => (
+    pillButton({
+      value: dog._id,
+      label: dog.name || 'Mein Hund',
+      active: dog._id === selectedId,
+      deleteMode: false,
+      deleteCandidate: '',
+      attr: 'data-dog',
+    })
   )).join('');
-  if (state.dogs.some((dog) => dog._id === selected)) {
-    els.dogSelect.value = selected;
-  } else if (state.dogs[0]?._id) {
-    els.dogSelect.value = state.dogs[0]._id;
-  }
+  els.dogButtons.querySelectorAll('[data-dog]').forEach((button) => {
+    button.addEventListener('click', () => {
+      els.dogSelect.value = button.dataset.dog;
+      renderDogSelect();
+    });
+  });
 }
 
 function renderEntries() {

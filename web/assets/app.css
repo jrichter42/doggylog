@@ -181,7 +181,8 @@ main {
   gap: 1rem;
 }
 
-.dog-row label {
+.dog-row label,
+.dog-row .choice-block {
   max-width: 100%;
 }
 
@@ -304,6 +305,7 @@ main {
   padding: 0.45rem 0.75rem;
 }
 
+#dogButtons .pill-button,
 #locationButtons .pill-button {
   min-height: 48px;
   border-radius: 8px;
