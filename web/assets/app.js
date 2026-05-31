@@ -252,12 +252,27 @@ function renderShell() {
   if (state.status.auth?.bootstrap_pending && !setup && !user) {
     setMessage('Initiales Setup offen. Lies web/bootstrap_setup.txt auf Server.', false);
   } else if (!user && !passkeysAvailable()) {
-    state.emailLoginOffered = true;
+    state.emailLoginOffered = canUseEmailLogin;
     setMessage('Passkeys hier nicht verfügbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
     els.loginEmailForm.hidden = !canUseEmailLogin || Boolean(user);
   }
 
   renderView();
+}
+
+function offerEmailLogin(message) {
+  if (!state.status?.mail?.login_enabled) {
+    state.emailLoginOffered = false;
+    renderShell();
+    setMessage(message, true);
+    return;
+  }
+  state.emailLoginOffered = true;
+  renderShell();
+  els.loginEmailState.hidden = true;
+  els.loginEmailState.textContent = '';
+  els.loginEmailInput.focus();
+  setMessage(message, true);
 }
 
 function switchView(view, updateHash = true) {
@@ -797,9 +812,7 @@ function cssEscape(value) {
 }
 
 els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => {
-  state.emailLoginOffered = true;
-  renderShell();
-  setMessage(error.message, true);
+  offerEmailLogin(error.message || 'Passkey fehlgeschlagen. Du kannst einen Login-Link anfordern.');
 }));
 els.setupForm.addEventListener('submit', (event) => passkeySetup(event).catch((error) => setMessage(error.message, true)));
 els.loginButton.addEventListener('click', () => {
@@ -810,6 +823,7 @@ els.viewTabs.forEach((tab) => {
 });
 els.loginEmailForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!state.status?.mail?.login_enabled) return;
   els.loginEmailState.hidden = false;
   els.loginEmailState.textContent = 'Sende...';
   const submitButton = els.loginEmailForm.querySelector('button[type="submit"]');
@@ -817,8 +831,8 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
   try {
     const result = await api('auth-email-login-request', { method: 'POST', body: { email: els.loginEmailInput.value } });
     els.loginEmailState.textContent = result.message || 'Wenn die Adresse bekannt ist, wurde ein Login-Link gesendet.';
-  } catch (_error) {
-    els.loginEmailState.textContent = 'Anfrage nicht abgeschlossen. Bitte später erneut versuchen.';
+  } catch (error) {
+    els.loginEmailState.textContent = error.message || 'Anfrage nicht abgeschlossen. Bitte später erneut versuchen.';
   } finally {
     if (submitButton) submitButton.disabled = false;
   }
