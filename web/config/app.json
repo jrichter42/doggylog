@@ -8,7 +8,7 @@
     "initial_admin_username": "admin"
   },
   "mail": {
-    "enabled": false,
+    "enabled": true,
     "from_address": "",
     "from_name": "Doggy Log",
     "reply_to": "",

@@ -18,7 +18,7 @@ final class Config
             'show_warnings' => true,
             'auth' => [],
             'mail' => [
-                'enabled' => false,
+                'enabled' => true,
                 'from_address' => '',
                 'from_name' => 'Doggy Log',
                 'reply_to' => '',
