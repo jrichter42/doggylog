@@ -30,7 +30,7 @@ final class Storage
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],
             'context' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
-            'comment' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
         ],
     ];
 
@@ -252,8 +252,8 @@ final class Storage
         }
 
         $updated = array_merge($current, $this->normalizePayload($type, $payload, $access));
-        if ($type === 'vitals' && array_key_exists('comment', $payload)) {
-            unset($updated['notes']);
+        if ($type === 'vitals' && array_key_exists('notes', $payload)) {
+            unset($updated['comment']);
         }
         $updated['_revision'] = (int) ($current['_revision'] ?? 0) + 1;
         $updated['_modified'] = $this->now();
@@ -410,7 +410,7 @@ final class Storage
 
             if ($field === 'location') {
                 $location = trim((string) $value);
-                if (!in_array($location, ['home', 'school', 'away'], true)) {
+                if ($location === '' || strlen($location) > 80) {
                     throw new InvalidArgumentException('Measurement location is invalid.');
                 }
                 $normalized[$field] = $location;

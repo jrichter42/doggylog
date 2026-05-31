@@ -123,23 +123,29 @@ $configWarnings = array_map(
           <form class="save-panel" id="entryForm">
             <input name="measured_at" id="measuredAtInput" type="hidden">
             <div class="choice-block">
-              <span class="control-title">Ort</span>
-              <div class="location-grid" role="group" aria-label="Ort">
-                <button type="button" class="is-active" data-location="home">Zuhause</button>
-                <button type="button" data-location="school">Schule</button>
-                <button type="button" data-location="away">Unterwegs</button>
+              <div class="choice-head">
+                <span class="control-title">Ort</span>
+                <div class="pill-actions">
+                  <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen">+</button>
+                  <button class="icon-button compact" id="deleteLocationButton" type="button" aria-label="Ort loeschen" title="Ort loeschen">-</button>
+                </div>
               </div>
+              <div class="pill-grid" id="locationButtons" role="group" aria-label="Ort"></div>
             </div>
-            <div class="context-row">
-              <label>
-                Kontext
-                <select id="contextInput" name="context"></select>
-              </label>
-              <button class="icon-button" id="addContextButton" type="button" aria-label="Kontext hinzufügen" title="Kontext hinzufügen">+</button>
+            <div class="choice-block">
+              <div class="choice-head">
+                <span class="control-title">Kontext</span>
+                <div class="pill-actions">
+                  <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen">+</button>
+                  <button class="icon-button compact" id="deleteContextButton" type="button" aria-label="Kontext loeschen" title="Kontext loeschen">-</button>
+                </div>
+              </div>
+              <input id="contextInput" name="context" type="hidden">
+              <div class="pill-grid" id="contextButtons" role="group" aria-label="Kontext"></div>
             </div>
             <label>
-              Kommentar
-              <textarea id="commentInput" name="comment" rows="3" placeholder="Optional"></textarea>
+              Notizen
+              <textarea id="notesInput" name="notes" rows="3" placeholder="Optional"></textarea>
             </label>
             <button class="primary" id="saveButton" type="submit" disabled>Messung speichern</button>
             <p id="saveState" class="muted" hidden></p>

@@ -183,6 +183,10 @@ final class AuthStore
                 $user['context_presets'] = $this->normalizeContextPresets($patch['context_presets']);
             }
 
+            if (array_key_exists('location_presets', $patch) && is_array($patch['location_presets'])) {
+                $user['location_presets'] = $this->normalizeContextPresets($patch['location_presets']);
+            }
+
             $user['updated_at'] = $this->now();
             $user['updated_by'] = $updatedBy;
             $data['users'][$index] = $user;
@@ -212,6 +216,9 @@ final class AuthStore
         }
         if (array_key_exists('context_presets', $patch)) {
             $allowedPatch['context_presets'] = is_array($patch['context_presets']) ? $patch['context_presets'] : [];
+        }
+        if (array_key_exists('location_presets', $patch)) {
+            $allowedPatch['location_presets'] = is_array($patch['location_presets']) ? $patch['location_presets'] : [];
         }
 
         return $this->updateUser($username, $allowedPatch, $username, true, true);
@@ -1030,6 +1037,7 @@ final class AuthStore
             'last_login_at' => $user['last_login_at'] ?? null,
             'needs_setup' => count($user['credentials'] ?? []) === 0,
             'context_presets' => $this->normalizeContextPresets(is_array($user['context_presets'] ?? null) ? $user['context_presets'] : []),
+            'location_presets' => $this->normalizeContextPresets(is_array($user['location_presets'] ?? null) ? $user['location_presets'] : []),
         ];
     }
 

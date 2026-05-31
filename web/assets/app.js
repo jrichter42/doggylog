@@ -20,6 +20,11 @@ const state = {
   view: window.location.hash === '#records' ? 'records' : 'measure',
   location: 'home',
   contextPresets: [],
+  locationPresets: ['home', 'school', 'away'],
+  contextDeleteMode: false,
+  contextDeleteCandidate: '',
+  locationDeleteMode: false,
+  locationDeleteCandidate: '',
   measuring: false,
   startedAt: 0,
   timer: null,
@@ -62,9 +67,14 @@ const els = {
   meterCount: $('meterCount'),
   measurementResult: $('measurementResult'),
   measuredAtInput: $('measuredAtInput'),
+  locationButtons: $('locationButtons'),
+  addLocationButton: $('addLocationButton'),
+  deleteLocationButton: $('deleteLocationButton'),
   contextInput: $('contextInput'),
+  contextButtons: $('contextButtons'),
   addContextButton: $('addContextButton'),
-  commentInput: $('commentInput'),
+  deleteContextButton: $('deleteContextButton'),
+  notesInput: $('notesInput'),
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
   saveState: $('saveState'),
@@ -201,6 +211,8 @@ async function refresh() {
   renderMeasurementControls();
   if (state.status.auth?.user) {
     state.contextPresets = Array.isArray(state.status.auth.user.context_presets) ? state.status.auth.user.context_presets : [];
+    state.locationPresets = userLocationPresets();
+    if (!state.locationPresets.includes(state.location)) state.location = state.locationPresets[0] || 'home';
     await loadDogs();
     await loadEntries();
     renderView();
@@ -281,23 +293,67 @@ function renderMeasurementControls() {
   document.querySelectorAll('[data-duration]').forEach((button) => {
     button.classList.toggle('is-active', Number(button.dataset.duration) === state.duration);
   });
-  document.querySelectorAll('[data-location]').forEach((button) => {
-    button.classList.toggle('is-active', button.dataset.location === state.location);
-  });
+  renderLocationOptions();
   renderContextOptions();
 
   updateMeterView();
 }
 
 function renderContextOptions() {
-  const selected = els.contextInput.value;
-  const options = [''].concat(state.contextPresets);
-  els.contextInput.innerHTML = options.map((context) => (
-    `<option value="${escapeHtml(context)}">${escapeHtml(context || 'Ohne Kontext')}</option>`
-  )).join('');
-  if (options.includes(selected)) {
-    els.contextInput.value = selected;
-  }
+  const options = state.contextPresets;
+  const selected = selectedContexts();
+  els.contextInput.value = selected.filter((context) => state.contextPresets.includes(context)).join(', ');
+  els.contextButtons.innerHTML = options.map((context) => pillButton({
+    value: context,
+    label: context,
+    active: selected.includes(context),
+    deleteMode: state.contextDeleteMode,
+    deleteCandidate: state.contextDeleteCandidate,
+    attr: 'data-context',
+  })).join('');
+  els.contextButtons.querySelectorAll('[data-context]').forEach((button) => {
+    button.addEventListener('click', () => handleContextClick(button.dataset.context).catch((error) => setMessage(error.message, true)));
+  });
+  els.deleteContextButton.classList.toggle('is-active', state.contextDeleteMode);
+  els.deleteContextButton.textContent = state.contextDeleteMode ? 'OK' : '-';
+}
+
+function selectedContexts() {
+  return els.contextInput.value
+    .split(',')
+    .map((context) => context.trim())
+    .filter((context) => context !== '');
+}
+
+function setSelectedContexts(contexts) {
+  els.contextInput.value = contexts.filter((context, index, list) => (
+    context !== '' && list.indexOf(context) === index
+  )).join(', ');
+}
+
+function renderLocationOptions() {
+  if (!state.locationPresets.includes(state.location)) state.location = state.locationPresets[0] || 'home';
+  els.locationButtons.innerHTML = state.locationPresets.map((location) => pillButton({
+    value: location,
+    label: locationLabel(location),
+    active: location === state.location,
+    deleteMode: state.locationDeleteMode,
+    deleteCandidate: state.locationDeleteCandidate,
+    attr: 'data-location',
+  })).join('');
+  els.locationButtons.querySelectorAll('[data-location]').forEach((button) => {
+    button.addEventListener('click', () => handleLocationClick(button.dataset.location).catch((error) => setMessage(error.message, true)));
+  });
+  els.deleteLocationButton.classList.toggle('is-active', state.locationDeleteMode);
+  els.deleteLocationButton.textContent = state.locationDeleteMode ? 'OK' : '-';
+}
+
+function pillButton({ value, label, active, deleteMode, deleteCandidate, attr }) {
+  const classes = ['pill-button'];
+  if (active) classes.push('is-active');
+  if (deleteMode) classes.push('is-delete-mode');
+  if (deleteMode && deleteCandidate === value) classes.push('is-delete-candidate');
+  return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
 }
 
 function resetMeasurement() {
@@ -445,7 +501,7 @@ function renderEntries() {
   els.entriesList.innerHTML = state.entries.map((entry) => {
     const type = entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
     const context = entry.context ? `<p class="muted">${escapeHtml(entry.context)}</p>` : '';
-    const comment = entry.comment || entry.notes ? `<p class="muted">${escapeHtml(entry.comment || entry.notes)}</p>` : '';
+    const notes = entry.notes || entry.comment ? `<p class="muted">${escapeHtml(entry.notes || entry.comment)}</p>` : '';
     const editing = state.editingEntryId === entry._id;
     return `
       <article class="entry ${editing ? 'is-editing' : ''}">
@@ -461,7 +517,7 @@ function renderEntries() {
           </div>
         </button>
         ${context}
-        ${comment}
+        ${notes}
         ${editing ? renderEntryEditor(entry, type) : ''}
       </article>
     `;
@@ -502,7 +558,13 @@ function renderEntryEditor(entry, type) {
     ? state.contextPresets
     : state.contextPresets.concat(entryContext);
   const contextOptions = [''].concat(editorContexts).map((context) => (
-    `<option value="${escapeHtml(context)}" ${context === (entry.context || '') ? 'selected' : ''}>${escapeHtml(context || 'Ohne Kontext')}</option>`
+    `<option value="${escapeHtml(context)}" ${context === (entry.context || '') ? 'selected' : ''}>${escapeHtml(context)}</option>`
+  )).join('');
+  const editorLocations = state.locationPresets.includes(entry.location) || !entry.location
+    ? state.locationPresets
+    : state.locationPresets.concat(entry.location);
+  const locationOptions = editorLocations.map((location) => (
+    `<option value="${escapeHtml(location)}" ${location === (entry.location || state.location) ? 'selected' : ''}>${escapeHtml(locationLabel(location))}</option>`
   )).join('');
 
   return `
@@ -545,9 +607,7 @@ function renderEntryEditor(entry, type) {
       <label>
         Ort
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location">
-          <option value="home" ${entry.location === 'home' ? 'selected' : ''}>Zuhause</option>
-          <option value="school" ${entry.location === 'school' ? 'selected' : ''}>Schule</option>
-          <option value="away" ${entry.location === 'away' ? 'selected' : ''}>Unterwegs</option>
+          ${locationOptions}
         </select>
       </label>
       <label>
@@ -555,8 +615,8 @@ function renderEntryEditor(entry, type) {
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context">${contextOptions}</select>
       </label>
       <label class="entry-editor-wide">
-        Kommentar
-        <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="comment">${escapeHtml(entry.comment || entry.notes || '')}</textarea>
+        Notizen
+        <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="notes">${escapeHtml(entry.notes || entry.comment || '')}</textarea>
       </label>
       <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
     </div>
@@ -594,7 +654,7 @@ async function saveEntryEdit(id) {
     duration_seconds: Number(values.duration_seconds),
     location: values.location,
     context: values.context,
-    comment: values.comment,
+    notes: values.notes,
     breaths_per_minute: measurementType === 'pulse' ? null : values.breaths_per_minute,
     pulse_per_minute: measurementType === 'breath' ? null : values.pulse_per_minute,
   };
@@ -625,14 +685,14 @@ async function saveEntry(event) {
     duration_seconds: state.duration,
     location: state.location,
     context: els.contextInput.value,
-    comment: els.commentInput.value,
+    notes: els.notesInput.value,
     breaths_per_minute: state.results.breath,
     pulse_per_minute: state.results.pulse,
   };
 
   await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
-  els.commentInput.value = '';
+  els.notesInput.value = '';
   resetMeasurement();
   renderMeasurementControls();
   await loadEntries();
@@ -660,6 +720,11 @@ function dateTimeLocalValue(value) {
 
 function modeLabel(type, value) {
   return Object.fromEntries(modes[type] || sharedModes)[value] || value || 'Ruhend';
+}
+
+function userLocationPresets() {
+  const presets = state.status?.auth?.user?.location_presets;
+  return Array.isArray(presets) && presets.length > 0 ? presets : ['home', 'school', 'away'];
 }
 
 function locationLabel(value) {
@@ -711,13 +776,18 @@ document.querySelectorAll('[data-duration]').forEach((button) => {
     renderMeasurementControls();
   });
 });
-document.querySelectorAll('[data-location]').forEach((button) => {
-  button.addEventListener('click', () => {
-    state.location = button.dataset.location;
-    renderMeasurementControls();
-  });
-});
 els.addContextButton.addEventListener('click', () => addContext().catch((error) => setMessage(error.message, true)));
+els.deleteContextButton.addEventListener('click', () => {
+  state.contextDeleteMode = !state.contextDeleteMode;
+  state.contextDeleteCandidate = '';
+  renderContextOptions();
+});
+els.addLocationButton.addEventListener('click', () => addLocation().catch((error) => setMessage(error.message, true)));
+els.deleteLocationButton.addEventListener('click', () => {
+  state.locationDeleteMode = !state.locationDeleteMode;
+  state.locationDeleteCandidate = '';
+  renderLocationOptions();
+});
 
 async function addContext() {
   const value = window.prompt('Neuer Kontext');
@@ -729,8 +799,68 @@ async function addContext() {
   const result = await api('account-update', { method: 'POST', body: { context_presets: presets } });
   state.contextPresets = result.user?.context_presets || result.account?.user?.context_presets || presets;
   if (state.status?.auth?.user) state.status.auth.user.context_presets = state.contextPresets;
+  setSelectedContexts(selectedContexts().concat(context));
   renderContextOptions();
-  els.contextInput.value = context;
+}
+
+async function addLocation() {
+  const value = window.prompt('Neuer Ort');
+  if (value === null) return;
+  const location = value.trim();
+  if (location === '') return;
+
+  const presets = state.locationPresets.filter((item) => item !== location).concat(location);
+  await saveLocationPresets(presets);
+  state.location = location;
+  renderLocationOptions();
+}
+
+async function handleContextClick(context) {
+  if (!state.contextDeleteMode) {
+    const selected = selectedContexts();
+    setSelectedContexts(selected.includes(context)
+      ? selected.filter((item) => item !== context)
+      : selected.concat(context));
+    renderContextOptions();
+    return;
+  }
+  if (state.contextDeleteCandidate !== context) {
+    state.contextDeleteCandidate = context;
+    renderContextOptions();
+    return;
+  }
+  const presets = state.contextPresets.filter((item) => item !== context);
+  const result = await api('account-update', { method: 'POST', body: { context_presets: presets } });
+  state.contextPresets = result.user?.context_presets || result.account?.user?.context_presets || presets;
+  if (state.status?.auth?.user) state.status.auth.user.context_presets = state.contextPresets;
+  setSelectedContexts(selectedContexts().filter((item) => item !== context));
+  state.contextDeleteCandidate = '';
+  renderContextOptions();
+}
+
+async function handleLocationClick(location) {
+  if (!state.locationDeleteMode) {
+    state.location = location;
+    renderLocationOptions();
+    return;
+  }
+  if (state.locationPresets.length <= 1) return;
+  if (state.locationDeleteCandidate !== location) {
+    state.locationDeleteCandidate = location;
+    renderLocationOptions();
+    return;
+  }
+  const presets = state.locationPresets.filter((item) => item !== location);
+  await saveLocationPresets(presets);
+  if (state.location === location) state.location = state.locationPresets[0] || 'home';
+  state.locationDeleteCandidate = '';
+  renderLocationOptions();
+}
+
+async function saveLocationPresets(presets) {
+  const result = await api('account-update', { method: 'POST', body: { location_presets: presets } });
+  state.locationPresets = result.user?.location_presets || result.account?.user?.location_presets || presets;
+  if (state.status?.auth?.user) state.status.auth.user.location_presets = state.locationPresets;
 }
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {

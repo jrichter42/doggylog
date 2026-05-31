@@ -199,10 +199,29 @@ main {
   gap: 0.45rem;
 }
 
+.choice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.pill-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.compact {
+  min-height: 34px;
+  width: 34px;
+  font-size: 1.15rem;
+}
+
 .big-switch,
 .segmented,
 .mode-grid,
-.location-grid {
+.location-grid,
+.pill-grid {
   display: grid;
   gap: 0.45rem;
 }
@@ -266,11 +285,39 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .big-switch button,
 .segmented button,
 .mode-grid button,
-.location-grid button {
+.location-grid button,
+.pill-button {
   font-weight: 850;
+}
+
+.pill-button {
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+}
+
+#locationButtons .pill-button {
+  min-height: 48px;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+}
+
+.pill-button.is-delete-mode {
+  border-color: #7f1d1d;
+}
+
+.pill-button.is-delete-candidate {
+  background: #3b1116;
+  border-color: #f43f5e;
+  color: #fda4af;
 }
 
 .big-switch button {
