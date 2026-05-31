@@ -45,16 +45,6 @@ function require_permission(AuthStore $auth, string $permission): array
     return $user;
 }
 
-function object_access(AuthStore $auth): string
-{
-    $canReadData = $auth->hasPermission('read') || $auth->hasPermission('write');
-    if ($canReadData && $auth->hasPermission('sensitive')) {
-        return 'protected';
-    }
-
-    return $canReadData ? 'private' : 'public';
-}
-
 /**
  * @param array<string, mixed> $user
  */
@@ -113,7 +103,6 @@ try {
         case 'status':
             Http::requireMethod('GET');
             $authStatus = $auth->status();
-            $access = object_access($auth);
             $includeCounts = ($_GET['counts'] ?? '1') !== '0';
             $currentUser = is_array($authStatus['user'] ?? null) ? $authStatus['user'] : null;
             $username = $currentUser !== null ? (string) ($currentUser['username'] ?? '') : null;
@@ -131,16 +120,15 @@ try {
                     'login_enabled' => $mailer->isLoginEnabled(),
                 ],
                 'webauthn' => $webauthn->publicContext(),
-                'storage' => $storage->status($access, $includeCounts, $username),
+                'storage' => $storage->status($includeCounts && $username !== null, $username),
             ]);
             break;
 
         case 'objects':
             Http::requireMethod('GET');
             $user = require_user($auth);
-            $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
-            $objects = $storage->listObjects($type, $access, (string) $user['username']);
+            $objects = $storage->listObjects($type, (string) $user['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -153,17 +141,16 @@ try {
             $user = require_user($auth);
             Http::json([
                 'ok' => true,
-                'changes' => $storage->recentChanges(object_access($auth), (string) $user['username']),
+                'changes' => $storage->recentChanges((string) $user['username']),
             ]);
             break;
 
         case 'object':
             Http::requireMethod('GET');
             $user = require_user($auth);
-            $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
             $id = (string) ($_GET['id'] ?? '');
-            $object = $storage->readObject($type, $id, $access, (string) $user['username']);
+            $object = $storage->readObject($type, $id, (string) $user['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -173,9 +160,10 @@ try {
 
         case 'object-schema':
             Http::requireMethod('GET');
+            require_user($auth);
             Http::json([
                 'ok' => true,
-                'schemas' => $storage->schemas(object_access($auth)),
+                'schemas' => $storage->schemas(),
             ]);
             break;
 
@@ -189,7 +177,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->createObject($type, $payload, (string) $editor['username'], object_access($auth), edit_source($body, $editor)),
+                'object' => $storage->createObject($type, $payload, (string) $editor['username'], edit_source($body, $editor)),
             ]);
             break;
 
@@ -203,11 +191,11 @@ try {
             $payload = is_array($body['object'] ?? null) ? $body['object'] : (is_array($body['patch'] ?? null) ? $body['patch'] : []);
             $baseRevision = (int) ($body['base_revision'] ?? 0);
             $initialWrite = ($body['initial_revision'] ?? false) === true;
-            $storage->readObject($type, $id, object_access($auth), (string) $editor['username']);
+            $storage->readObject($type, $id, (string) $editor['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['username'], object_access($auth), edit_source($body, $editor), $initialWrite),
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['username'], edit_source($body, $editor), $initialWrite),
             ]);
             break;
 
@@ -219,11 +207,11 @@ try {
             $type = (string) ($body['type'] ?? '');
             $id = (string) ($body['id'] ?? '');
             $baseRevision = (int) ($body['base_revision'] ?? 0);
-            $storage->readObject($type, $id, object_access($auth), (string) $editor['username']);
+            $storage->readObject($type, $id, (string) $editor['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['username'], object_access($auth), edit_source($body, $editor)),
+                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['username'], edit_source($body, $editor)),
             ]);
             break;
 

@@ -16,28 +16,28 @@ final class Storage
 
     private const FIELD_SCHEMAS = [
         'dogs' => [
-            'name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
-            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => 'Mein Hund'],
+            'notes' => ['type' => 'string', 'default' => ''],
         ],
         'locations' => [
-            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => ''],
         ],
         'contexts' => [
-            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'name' => ['type' => 'string', 'default' => ''],
         ],
         'vitals' => [
-            'measured_at' => ['type' => 'datetime-local', 'default' => '', 'visibility' => 'private'],
-            'dog_id' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
-            'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
-            'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
-            'duration_seconds' => ['type' => 'number', 'default' => 15, 'visibility' => 'private'],
-            'breath_duration_seconds' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'pulse_duration_seconds' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'breaths_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'location_id' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
-            'context_ids' => ['type' => 'array', 'default' => [], 'visibility' => 'private'],
-            'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'measured_at' => ['type' => 'datetime-local', 'default' => ''],
+            'dog_id' => ['type' => 'string', 'default' => ''],
+            'measurement_type' => ['type' => 'string', 'default' => 'breath'],
+            'mode' => ['type' => 'string', 'default' => 'resting'],
+            'duration_seconds' => ['type' => 'number', 'default' => 15],
+            'breath_duration_seconds' => ['type' => 'number', 'default' => null],
+            'pulse_duration_seconds' => ['type' => 'number', 'default' => null],
+            'breaths_per_minute' => ['type' => 'number', 'default' => null],
+            'pulse_per_minute' => ['type' => 'number', 'default' => null],
+            'location_id' => ['type' => 'string', 'default' => ''],
+            'context_ids' => ['type' => 'array', 'default' => []],
+            'notes' => ['type' => 'string', 'default' => ''],
         ],
     ];
 
@@ -69,15 +69,13 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function status(string $access, bool $includeCounts = true, ?string $username = null): array
+    public function status(bool $includeCounts = true, ?string $username = null): array
     {
-        $this->assertAccess($access);
-
         return [
             'writable' => is_writable($this->dataPath()),
             'runtime_writable' => is_writable($this->varPath()),
             'collections' => $includeCounts ? $this->counts($username) : [],
-            'schemas' => $this->schemas($access),
+            'schemas' => $username !== null ? $this->schemas() : [],
         ];
     }
 
@@ -99,10 +97,9 @@ final class Storage
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listObjects(string $type, string $access, string $username): array
+    public function listObjects(string $type, string $username): array
     {
         $this->assertCollection($type);
-        $this->assertAccess($access);
         $this->assertUsername($username);
 
         $objects = [];
@@ -112,7 +109,7 @@ final class Storage
                 continue;
             }
 
-            $objects[] = $this->redact($type, $object, $access);
+            $objects[] = $object;
         }
 
         usort($objects, static function (array $left, array $right): int {
@@ -125,10 +122,9 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function readObject(string $type, string $id, string $access, string $username): array
+    public function readObject(string $type, string $id, string $username): array
     {
         $this->assertCollection($type);
-        $this->assertAccess($access);
         $this->assertId($id);
         $this->assertUsername($username);
 
@@ -142,15 +138,14 @@ final class Storage
             throw new InvalidArgumentException('Object not found.');
         }
 
-        return $this->redact($type, $object, $access);
+        return $object;
     }
 
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function recentChanges(string $access, string $username): array
+    public function recentChanges(string $username): array
     {
-        $this->assertAccess($access);
         $this->assertUsername($username);
 
         $changes = [];
@@ -177,20 +172,11 @@ final class Storage
     /**
      * @return array<string, array<string, mixed>>
      */
-    public function schemas(string $access): array
+    public function schemas(): array
     {
-        $this->assertAccess($access);
-
         $schemas = [];
         foreach (self::FIELD_SCHEMAS as $type => $fields) {
-            $visibleFields = [];
-            foreach ($fields as $field => $definition) {
-                $visibility = (string) ($definition['visibility'] ?? 'private');
-                if ($this->canReadVisibility($visibility, $access)) {
-                    $visibleFields[$field] = $definition;
-                }
-            }
-            $schemas[$type] = ['fields' => $visibleFields];
+            $schemas[$type] = ['fields' => $fields];
         }
 
         return $schemas;
@@ -200,15 +186,14 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function createObject(string $type, array $payload, string $username, string $access, string $source = ''): array
+    public function createObject(string $type, array $payload, string $username, string $source = ''): array
     {
         $this->assertCollection($type);
-        $this->assertAccess($access);
         $this->assertUsername($username);
 
         $id = $this->uuid();
         $now = $this->now();
-        $object = array_merge($this->defaults($type), $this->normalizePayload($type, $payload, $access), [
+        $object = array_merge($this->defaults($type), $this->normalizePayload($type, $payload), [
             '_id' => $id,
             '_revision' => 1,
             '_created' => $now,
@@ -227,17 +212,16 @@ final class Storage
         }
         $this->writeJson($this->objectPath($type, $id, $username), $object);
 
-        return $this->redact($type, $object, $access);
+        return $object;
     }
 
     /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $username, string $access, string $source = '', bool $initialWrite = false): array
+    public function updateObject(string $type, string $id, int $baseRevision, array $payload, string $username, string $source = '', bool $initialWrite = false): array
     {
         $this->assertCollection($type);
-        $this->assertAccess($access);
         $this->assertId($id);
 
         $this->assertUsername($username);
@@ -252,10 +236,10 @@ final class Storage
         }
 
         if ((int) ($current['_revision'] ?? 0) !== $baseRevision) {
-            throw new StorageConflictException('Object was changed by someone else.', $this->redact($type, $current, $access));
+            throw new StorageConflictException('Object was changed by someone else.', $current);
         }
 
-        $updated = array_merge($current, $this->normalizePayload($type, $payload, $access));
+        $updated = array_merge($current, $this->normalizePayload($type, $payload));
         if ($type === 'vitals' && array_key_exists('notes', $payload)) {
             unset($updated['comment']);
         }
@@ -267,16 +251,15 @@ final class Storage
         $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current, $username);
         $this->writeJson($path, $updated);
 
-        return $this->redact($type, $updated, $access);
+        return $updated;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function deleteObject(string $type, string $id, int $baseRevision, string $username, string $access, string $source = ''): array
+    public function deleteObject(string $type, string $id, int $baseRevision, string $username, string $source = ''): array
     {
         $this->assertCollection($type);
-        $this->assertAccess($access);
         $this->assertId($id);
 
         $this->assertUsername($username);
@@ -287,7 +270,7 @@ final class Storage
 
         $current = $this->readJson($path);
         if ((int) ($current['_revision'] ?? 0) !== $baseRevision) {
-            throw new StorageConflictException('Object was changed by someone else.', $this->redact($type, $current, $access));
+            throw new StorageConflictException('Object was changed by someone else.', $current);
         }
 
         $deleted = $current;
@@ -299,7 +282,7 @@ final class Storage
         $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current, $username);
         $this->writeJson($path, $deleted);
 
-        return $this->redact($type, $deleted, $access);
+        return $deleted;
     }
 
     private function dataPath(): string
@@ -354,17 +337,12 @@ final class Storage
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    private function normalizePayload(string $type, array $payload, string $access): array
+    private function normalizePayload(string $type, array $payload): array
     {
         $normalized = [];
         foreach ($payload as $field => $value) {
             if (in_array($field, self::META_FIELDS, true) || !array_key_exists($field, self::FIELD_SCHEMAS[$type])) {
                 continue;
-            }
-
-            $visibility = (string) (self::FIELD_SCHEMAS[$type][$field]['visibility'] ?? 'private');
-            if (!$this->canReadVisibility($visibility, $access)) {
-                throw new InvalidArgumentException('Permission is required for this field.');
             }
 
             if (in_array($field, ['breaths_per_minute', 'pulse_per_minute'], true)) {
@@ -473,49 +451,6 @@ final class Storage
         }
 
         return $normalized;
-    }
-
-    /**
-     * @param array<string, mixed> $object
-     * @return array<string, mixed>
-     */
-    private function redact(string $type, array $object, string $access): array
-    {
-        $redacted = $object;
-        foreach (self::FIELD_SCHEMAS[$type] ?? [] as $field => $definition) {
-            $visibility = (string) ($definition['visibility'] ?? 'private');
-            if (!$this->canReadVisibility($visibility, $access)) {
-                unset($redacted[$field]);
-            }
-        }
-
-        if (!$this->canReadVisibility('private', $access)) {
-            foreach (['_revision', '_created', '_modified', '_modifiedBy'] as $field) {
-                unset($redacted[$field]);
-            }
-        }
-
-        return $redacted;
-    }
-
-    private function canReadVisibility(string $visibility, string $access): bool
-    {
-        if ($visibility === 'public') {
-            return true;
-        }
-
-        if ($visibility === 'private') {
-            return in_array($access, ['private', 'protected'], true);
-        }
-
-        return $access === 'protected';
-    }
-
-    private function assertAccess(string $access): void
-    {
-        if (!in_array($access, ['public', 'private', 'protected'], true)) {
-            throw new InvalidArgumentException('Invalid access level.');
-        }
     }
 
     private function assertCollection(string $type): void

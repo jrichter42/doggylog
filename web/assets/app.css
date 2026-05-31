@@ -369,19 +369,29 @@ main {
   text-align: center;
   min-height: 5.75rem;
   align-content: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 #meterStatus {
   color: var(--ink);
-  font-size: clamp(2.1rem, 12vw, 4.4rem);
+  font-size: clamp(1.85rem, 10.5vw, 4.4rem);
   font-weight: 1000;
   line-height: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 #meterCount {
   color: var(--accent-2);
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 4vw, 1.05rem);
   font-weight: 900;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .section-head {
@@ -445,6 +455,13 @@ main {
 .secondary-action {
   justify-self: center;
   min-width: 12rem;
+}
+
+.danger-action {
+  border-color: #fb7185;
+  background: #4a1622;
+  color: #ffe4e9;
+  font-weight: 900;
 }
 
 @keyframes tap-hit {

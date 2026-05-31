@@ -304,20 +304,17 @@ function renderMeasurementControls() {
     button.dataset.recorded = recorded ? 'true' : 'false';
   });
 
+  if (!modes[state.measureType].some(([value]) => value === state.mode)) {
+    state.mode = modes[state.measureType][0][0];
+  }
+
   els.modeButtons.innerHTML = modes[state.measureType].map(([value, label]) => (
     `<button type="button" data-mode="${value}" class="${value === state.mode ? 'is-active' : ''}">${label}</button>`
   )).join('');
 
-  if (!modes[state.measureType].some(([value]) => value === state.mode)) {
-    state.mode = modes[state.measureType][0][0];
-    renderMeasurementControls();
-    return;
-  }
-
   els.modeButtons.querySelectorAll('[data-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       state.mode = button.dataset.mode;
-      resetMeasurement();
       renderMeasurementControls();
     });
   });
@@ -416,6 +413,17 @@ function resetMeasurementRun() {
   els.saveState.hidden = true;
 }
 
+function syncMeasurementSelection() {
+  if (state.measuring) return;
+  state.result = state.results[state.measureType];
+  state.taps = state.result !== null ? state.resultTaps[state.measureType] : state.taps;
+  const savedDuration = state.resultDurations[state.measureType];
+  if (state.result !== null && savedDuration !== null) state.duration = savedDuration;
+  els.tapButton.disabled = state.result !== null;
+  els.newMeasurementButton.hidden = state.result === null;
+  els.saveButton.disabled = !hasSavedMeasurement();
+}
+
 function startMeasurement() {
   state.results[state.measureType] = null;
   state.resultTaps[state.measureType] = 0;
@@ -482,7 +490,7 @@ function updateMeterView() {
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
 
-  els.meterStatus.textContent = state.measuring ? `Noch ${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
+  els.meterStatus.textContent = state.measuring ? `${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
   els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
   els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
@@ -861,12 +869,16 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
 document.querySelectorAll('[data-measure-type]').forEach((button) => {
   button.addEventListener('click', () => {
     state.measureType = button.dataset.measureType;
-    resetMeasurementRun();
+    syncMeasurementSelection();
     renderMeasurementControls();
   });
 });
 document.querySelectorAll('[data-duration]').forEach((button) => {
   button.addEventListener('click', () => {
+    if (state.measuring || state.results[state.measureType] !== null) {
+      renderMeasurementControls();
+      return;
+    }
     state.duration = Number(button.dataset.duration);
     renderMeasurementControls();
   });
