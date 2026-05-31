@@ -87,7 +87,7 @@ $configWarnings = array_map(
           </div>
 
           <div class="choice-block">
-            <span class="control-title">Was messen?</span>
+            <span class="control-title">Messung</span>
             <div class="big-switch" role="group" aria-label="Messart">
               <button type="button" class="is-active" data-measure-type="breath">Atemfrequenz</button>
               <button type="button" data-measure-type="pulse">Puls</button>
@@ -143,10 +143,10 @@ $configWarnings = array_map(
               <input id="contextInput" name="context" type="hidden">
               <div class="pill-grid" id="contextButtons" role="group" aria-label="Kontext"></div>
             </div>
-            <label>
-              Notizen
-              <textarea id="notesInput" name="notes" rows="3" placeholder="Optional"></textarea>
-            </label>
+            <div class="choice-block">
+              <span class="control-title">Notizen</span>
+              <textarea id="notesInput" name="notes" rows="3"></textarea>
+            </div>
             <button class="primary" id="saveButton" type="submit" disabled>Messung speichern</button>
             <p id="saveState" class="muted" hidden></p>
           </form>

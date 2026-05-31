@@ -32,6 +32,8 @@ const state = {
   taps: 0,
   result: null,
   results: { breath: null, pulse: null },
+  resultTaps: { breath: 0, pulse: 0 },
+  resultDurations: { breath: null, pulse: null },
   editingEntryId: null,
   saveTimers: new Map(),
 };
@@ -359,7 +361,10 @@ function pillButton({ value, label, active, deleteMode, deleteCandidate, attr })
 function resetMeasurement() {
   resetMeasurementRun();
   state.results = { breath: null, pulse: null };
+  state.resultTaps = { breath: 0, pulse: 0 };
+  state.resultDurations = { breath: null, pulse: null };
   state.result = null;
+  state.taps = 0;
   els.measuredAtInput.value = '';
   els.saveButton.disabled = true;
 }
@@ -371,15 +376,20 @@ function resetMeasurementRun() {
   state.startedAt = 0;
   state.timer = null;
   state.finishTimer = null;
-  state.taps = 0;
   state.result = state.results[state.measureType];
-  els.tapButton.disabled = false;
+  state.taps = state.result !== null ? state.resultTaps[state.measureType] : 0;
+  const savedDuration = state.resultDurations[state.measureType];
+  if (state.result !== null && savedDuration !== null) state.duration = savedDuration;
+  els.tapButton.disabled = state.result !== null;
   els.newMeasurementButton.hidden = true;
   els.saveButton.disabled = !hasSavedMeasurement();
   els.saveState.hidden = true;
 }
 
 function startMeasurement() {
+  state.results[state.measureType] = null;
+  state.resultTaps[state.measureType] = 0;
+  state.resultDurations[state.measureType] = null;
   resetMeasurementRun();
   state.measuring = true;
   state.startedAt = Date.now();
@@ -410,6 +420,8 @@ function finishMeasurement() {
   state.finishTimer = null;
   state.result = Math.round((state.taps / state.duration) * 60);
   state.results[state.measureType] = state.result;
+  state.resultTaps[state.measureType] = state.taps;
+  state.resultDurations[state.measureType] = state.duration;
   if (!els.measuredAtInput.value) els.measuredAtInput.value = new Date().toISOString();
   els.tapButton.disabled = true;
   els.newMeasurementButton.hidden = false;
@@ -428,7 +440,10 @@ function pulseFeedback() {
 function updateMeterView() {
   const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
   const savedResult = state.results[state.measureType];
-  if (!state.measuring) state.result = savedResult;
+  if (!state.measuring) {
+    state.result = savedResult;
+    state.taps = savedResult !== null ? state.resultTaps[state.measureType] : state.taps;
+  }
   const countLabel = state.measureType === 'breath'
     ? (state.taps === 1 ? 'Atemzug' : 'Atemzüge')
     : (state.taps === 1 ? 'Pulsschlag' : 'Pulsschläge');
@@ -452,6 +467,15 @@ function savedMeasurementType() {
   if (state.results.breath !== null && state.results.pulse !== null) return 'both';
   if (state.results.pulse !== null) return 'pulse';
   return 'breath';
+}
+
+function savedDuration() {
+  return state.resultDurations.breath || state.resultDurations.pulse || state.duration;
+}
+
+function durationForEntry(entry, type) {
+  const typed = type === 'pulse' ? entry.pulse_duration_seconds : entry.breath_duration_seconds;
+  return Number(typed || entry.duration_seconds || 15);
 }
 
 async function loadEntries() {
@@ -560,6 +584,8 @@ function renderEntryEditor(entry, type) {
   const contextOptions = [''].concat(editorContexts).map((context) => (
     `<option value="${escapeHtml(context)}" ${context === (entry.context || '') ? 'selected' : ''}>${escapeHtml(context)}</option>`
   )).join('');
+  const breathDuration = durationForEntry(entry, 'breath');
+  const pulseDuration = durationForEntry(entry, 'pulse');
   const editorLocations = state.locationPresets.includes(entry.location) || !entry.location
     ? state.locationPresets
     : state.locationPresets.concat(entry.location);
@@ -598,10 +624,17 @@ function renderEntryEditor(entry, type) {
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="mode">${modeOptions}</select>
       </label>
       <label>
-        Dauer
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="duration_seconds">
-          <option value="15" ${Number(entry.duration_seconds) === 15 ? 'selected' : ''}>15 Sekunden</option>
-          <option value="30" ${Number(entry.duration_seconds) === 30 ? 'selected' : ''}>30 Sekunden</option>
+        Dauer Atemfrequenz
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="breath_duration_seconds">
+          <option value="15" ${breathDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
+          <option value="30" ${breathDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
+        </select>
+      </label>
+      <label>
+        Dauer Puls
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_duration_seconds">
+          <option value="15" ${pulseDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
+          <option value="30" ${pulseDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
         </select>
       </label>
       <label>
@@ -651,7 +684,9 @@ async function saveEntryEdit(id) {
     dog_name: dog?.name || entry.dog_name || 'Mein Hund',
     measurement_type: measurementType,
     mode: values.mode,
-    duration_seconds: Number(values.duration_seconds),
+    duration_seconds: Number(values.breath_duration_seconds || values.pulse_duration_seconds || entry.duration_seconds || 15),
+    breath_duration_seconds: measurementType === 'pulse' ? null : values.breath_duration_seconds,
+    pulse_duration_seconds: measurementType === 'breath' ? null : values.pulse_duration_seconds,
     location: values.location,
     context: values.context,
     notes: values.notes,
@@ -682,7 +717,9 @@ async function saveEntry(event) {
     dog_name: dog?.name || 'Mein Hund',
     measurement_type: savedMeasurementType(),
     mode: state.mode,
-    duration_seconds: state.duration,
+    duration_seconds: savedDuration(),
+    breath_duration_seconds: state.results.breath !== null ? state.resultDurations.breath : null,
+    pulse_duration_seconds: state.results.pulse !== null ? state.resultDurations.pulse : null,
     location: state.location,
     context: els.contextInput.value,
     notes: els.notesInput.value,
@@ -772,7 +809,6 @@ document.querySelectorAll('[data-measure-type]').forEach((button) => {
 document.querySelectorAll('[data-duration]').forEach((button) => {
   button.addEventListener('click', () => {
     state.duration = Number(button.dataset.duration);
-    resetMeasurement();
     renderMeasurementControls();
   });
 });

@@ -26,6 +26,8 @@ final class Storage
             'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
             'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
             'duration_seconds' => ['type' => 'number', 'default' => 15, 'visibility' => 'private'],
+            'breath_duration_seconds' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
+            'pulse_duration_seconds' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'breaths_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],
@@ -380,7 +382,11 @@ final class Storage
                 continue;
             }
 
-            if ($field === 'duration_seconds') {
+            if (in_array($field, ['duration_seconds', 'breath_duration_seconds', 'pulse_duration_seconds'], true)) {
+                if ($value === '' || $value === null) {
+                    $normalized[$field] = $field === 'duration_seconds' ? 15 : null;
+                    continue;
+                }
                 $duration = (int) $value;
                 if (!in_array($duration, [15, 30], true)) {
                     throw new InvalidArgumentException('Measurement duration is invalid.');
