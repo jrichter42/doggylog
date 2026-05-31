@@ -9,20 +9,25 @@ final class Storage
 {
     private const COLLECTIONS = [
         'dogs' => 'dogs',
+        'locations' => 'locations',
+        'contexts' => 'contexts',
         'vitals' => 'vitals',
     ];
 
     private const FIELD_SCHEMAS = [
         'dogs' => [
-            'owner_username' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
         ],
+        'locations' => [
+            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+        ],
+        'contexts' => [
+            'name' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+        ],
         'vitals' => [
             'measured_at' => ['type' => 'datetime-local', 'default' => '', 'visibility' => 'private'],
-            'owner_username' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
             'dog_id' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
-            'dog_name' => ['type' => 'string', 'default' => 'Mein Hund', 'visibility' => 'private'],
             'measurement_type' => ['type' => 'string', 'default' => 'breath', 'visibility' => 'private'],
             'mode' => ['type' => 'string', 'default' => 'resting', 'visibility' => 'private'],
             'duration_seconds' => ['type' => 'number', 'default' => 15, 'visibility' => 'private'],
@@ -30,8 +35,8 @@ final class Storage
             'pulse_duration_seconds' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'breaths_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
             'pulse_per_minute' => ['type' => 'number', 'default' => null, 'visibility' => 'private'],
-            'location' => ['type' => 'string', 'default' => 'home', 'visibility' => 'private'],
-            'context' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'location_id' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
+            'context_ids' => ['type' => 'array', 'default' => [], 'visibility' => 'private'],
             'notes' => ['type' => 'string', 'default' => '', 'visibility' => 'private'],
         ],
     ];
@@ -59,26 +64,19 @@ final class Storage
                 mkdir($directory, 0775, true);
             }
         }
-
-        foreach (self::COLLECTIONS as $directory) {
-            $path = $this->dataPath() . '/' . $directory;
-            if (!is_dir($path)) {
-                mkdir($path, 0775, true);
-            }
-        }
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function status(string $access, bool $includeCounts = true): array
+    public function status(string $access, bool $includeCounts = true, ?string $username = null): array
     {
         $this->assertAccess($access);
 
         return [
             'writable' => is_writable($this->dataPath()),
             'runtime_writable' => is_writable($this->varPath()),
-            'collections' => $includeCounts ? $this->counts() : [],
+            'collections' => $includeCounts ? $this->counts($username) : [],
             'schemas' => $this->schemas($access),
         ];
     }
@@ -86,11 +84,11 @@ final class Storage
     /**
      * @return array<string, int>
      */
-    public function counts(): array
+    public function counts(?string $username = null): array
     {
         $counts = [];
         foreach (array_keys(self::COLLECTIONS) as $type) {
-            $counts[$type] = count(array_filter($this->objectFiles($type), function (string $file): bool {
+            $counts[$type] = count(array_filter($this->objectFiles($type, $username), function (string $file): bool {
                 return !$this->isDeletedObject($this->readJson($file));
             }));
         }
@@ -101,13 +99,14 @@ final class Storage
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function listObjects(string $type, string $access): array
+    public function listObjects(string $type, string $access, string $username): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
+        $this->assertUsername($username);
 
         $objects = [];
-        foreach ($this->objectFiles($type) as $file) {
+        foreach ($this->objectFiles($type, $username) as $file) {
             $object = $this->readJson($file);
             if ($this->isDeletedObject($object)) {
                 continue;
@@ -126,13 +125,14 @@ final class Storage
     /**
      * @return array<string, mixed>
      */
-    public function readObject(string $type, string $id, string $access): array
+    public function readObject(string $type, string $id, string $access, string $username): array
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
         $this->assertId($id);
+        $this->assertUsername($username);
 
-        $path = $this->objectPath($type, $id);
+        $path = $this->objectPath($type, $id, $username);
         if (!is_file($path)) {
             throw new InvalidArgumentException('Object not found.');
         }
@@ -148,13 +148,14 @@ final class Storage
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function recentChanges(string $access): array
+    public function recentChanges(string $access, string $username): array
     {
         $this->assertAccess($access);
+        $this->assertUsername($username);
 
         $changes = [];
         foreach (array_keys(self::COLLECTIONS) as $type) {
-            foreach ($this->objectFiles($type) as $file) {
+            foreach ($this->objectFiles($type, $username) as $file) {
                 $object = $this->readJson($file);
                 $changes[] = [
                     'type' => $type,
@@ -203,6 +204,7 @@ final class Storage
     {
         $this->assertCollection($type);
         $this->assertAccess($access);
+        $this->assertUsername($username);
 
         $id = $this->uuid();
         $now = $this->now();
@@ -214,17 +216,16 @@ final class Storage
             '_modifiedBy' => $username,
             '_deleted' => false,
         ]);
-        if ($type === 'vitals' || $type === 'dogs') {
-            $object['owner_username'] = $username;
-        }
         if ($type === 'dogs') {
             $object['name'] = trim((string) ($object['name'] ?? '')) !== '' ? trim((string) $object['name']) : 'Mein Hund';
         }
-        if ($type === 'vitals') {
-            $object['dog_name'] = trim((string) ($object['dog_name'] ?? '')) !== '' ? trim((string) $object['dog_name']) : 'Mein Hund';
+        if ($type === 'locations' || $type === 'contexts') {
+            $object['name'] = trim((string) ($object['name'] ?? ''));
+            if ($object['name'] === '') {
+                throw new InvalidArgumentException('Name is required.');
+            }
         }
-
-        $this->writeJson($this->objectPath($type, $id), $object);
+        $this->writeJson($this->objectPath($type, $id, $username), $object);
 
         return $this->redact($type, $object, $access);
     }
@@ -239,7 +240,8 @@ final class Storage
         $this->assertAccess($access);
         $this->assertId($id);
 
-        $path = $this->objectPath($type, $id);
+        $this->assertUsername($username);
+        $path = $this->objectPath($type, $id, $username);
         if (!is_file($path)) {
             throw new InvalidArgumentException('Object not found.');
         }
@@ -262,7 +264,7 @@ final class Storage
         $updated['_modifiedBy'] = $username;
         $updated['_deleted'] = false;
 
-        $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current);
+        $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current, $username);
         $this->writeJson($path, $updated);
 
         return $this->redact($type, $updated, $access);
@@ -277,7 +279,8 @@ final class Storage
         $this->assertAccess($access);
         $this->assertId($id);
 
-        $path = $this->objectPath($type, $id);
+        $this->assertUsername($username);
+        $path = $this->objectPath($type, $id, $username);
         if (!is_file($path)) {
             throw new InvalidArgumentException('Object not found.');
         }
@@ -293,7 +296,7 @@ final class Storage
         $deleted['_modifiedBy'] = $username;
         $deleted['_deleted'] = true;
 
-        $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current);
+        $this->archiveRevision($type, $id, (int) ($current['_revision'] ?? 0), $current, $username);
         $this->writeJson($path, $deleted);
 
         return $this->redact($type, $deleted, $access);
@@ -309,23 +312,28 @@ final class Storage
         return $this->basePath . '/var';
     }
 
-    private function collectionPath(string $type): string
+    private function collectionPath(string $type, string $username): string
     {
         $this->assertCollection($type);
-        return $this->dataPath() . '/' . self::COLLECTIONS[$type];
+        $this->assertUsername($username);
+        return $this->dataPath() . '/' . $username . '/' . self::COLLECTIONS[$type];
     }
 
-    private function objectPath(string $type, string $id): string
+    private function objectPath(string $type, string $id, string $username): string
     {
-        return $this->collectionPath($type) . '/' . $id . '.json';
+        return $this->collectionPath($type, $username) . '/' . $id . '.json';
     }
 
     /**
      * @return array<int, string>
      */
-    private function objectFiles(string $type): array
+    private function objectFiles(string $type, ?string $username): array
     {
-        $files = glob($this->collectionPath($type) . '/*.json');
+        if ($username === null || $username === '') {
+            $files = glob($this->dataPath() . '/*/' . self::COLLECTIONS[$type] . '/*.json');
+        } else {
+            $files = glob($this->collectionPath($type, $username) . '/*.json');
+        }
         return is_array($files) ? array_values(array_filter($files, static fn (string $file): bool => !str_contains(basename($file), '_'))) : [];
     }
 
@@ -351,10 +359,6 @@ final class Storage
         $normalized = [];
         foreach ($payload as $field => $value) {
             if (in_array($field, self::META_FIELDS, true) || !array_key_exists($field, self::FIELD_SCHEMAS[$type])) {
-                continue;
-            }
-
-            if ($field === 'owner_username') {
                 continue;
             }
 
@@ -404,6 +408,15 @@ final class Storage
                 continue;
             }
 
+            if ($field === 'dog_id') {
+                $dogId = trim((string) $value);
+                if ($dogId !== '') {
+                    $this->assertId($dogId);
+                }
+                $normalized[$field] = $dogId;
+                continue;
+            }
+
             if ($field === 'mode') {
                 $mode = trim((string) $value);
                 $allowed = ['resting', 'active', 'panting', 'sleeping'];
@@ -415,17 +428,36 @@ final class Storage
             }
 
             if ($field === 'location') {
-                $location = trim((string) $value);
-                if ($location === '' || strlen($location) > 80) {
-                    throw new InvalidArgumentException('Measurement location is invalid.');
-                }
-                $normalized[$field] = $location;
                 continue;
             }
 
-            if ($type === 'dogs' && $field === 'name') {
+            if ($field === 'location_id') {
+                $locationId = trim((string) $value);
+                if ($locationId !== '') {
+                    $this->assertId($locationId);
+                }
+                $normalized[$field] = $locationId;
+                continue;
+            }
+
+            if ($field === 'context_ids') {
+                $values = is_array($value) ? $value : explode(',', (string) $value);
+                $ids = [];
+                foreach ($values as $item) {
+                    $contextId = trim((string) $item);
+                    if ($contextId === '') {
+                        continue;
+                    }
+                    $this->assertId($contextId);
+                    $ids[] = strtolower($contextId);
+                }
+                $normalized[$field] = array_slice(array_values(array_unique($ids)), 0, 30);
+                continue;
+            }
+
+            if (in_array($type, ['dogs', 'locations', 'contexts'], true) && $field === 'name') {
                 $name = trim((string) $value);
-                $normalized[$field] = $name !== '' ? $name : 'Mein Hund';
+                $normalized[$field] = $name !== '' ? substr($name, 0, 80) : ($type === 'dogs' ? 'Mein Hund' : '');
                 continue;
             }
 
@@ -500,6 +532,13 @@ final class Storage
         }
     }
 
+    private function assertUsername(string $username): void
+    {
+        if ($username === '' || preg_match('/^[A-Za-z0-9_.@-]{2,64}$/', $username) !== 1) {
+            throw new InvalidArgumentException('Invalid username.');
+        }
+    }
+
     /**
      * @param array<string, mixed> $object
      */
@@ -543,13 +582,13 @@ final class Storage
     /**
      * @param array<string, mixed> $object
      */
-    private function archiveRevision(string $type, string $id, int $revision, array $object): void
+    private function archiveRevision(string $type, string $id, int $revision, array $object, string $username): void
     {
         if ($revision <= 0) {
             return;
         }
 
-        $this->writeJson($this->collectionPath($type) . '/' . $id . '_' . $revision . '.json', $object);
+        $this->writeJson($this->collectionPath($type, $username) . '/' . $id . '_' . $revision . '.json', $object);
     }
 
     private function uuid(): string
@@ -577,11 +616,6 @@ final class Storage
             if (($object[$field] ?? null) !== null && $object[$field] !== '') {
                 $parts[] = $label . ' ' . $object[$field];
             }
-        }
-
-        $dog = trim((string) ($object['dog_name'] ?? ''));
-        if ($dog !== '') {
-            array_unshift($parts, $dog);
         }
 
         return $parts === [] ? 'Vitalzeichen' : implode(', ', $parts);

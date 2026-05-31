@@ -18,9 +18,9 @@ const state = {
   mode: 'resting',
   duration: 15,
   view: window.location.hash === '#records' ? 'records' : 'measure',
-  location: 'home',
+  location: '',
   contextPresets: [],
-  locationPresets: ['home', 'school', 'away'],
+  locationPresets: [],
   contextDeleteMode: false,
   contextDeleteCandidate: '',
   locationDeleteMode: false,
@@ -218,11 +218,13 @@ async function refresh() {
   renderShell();
   renderMeasurementControls();
   if (state.status.auth?.user) {
-    state.contextPresets = Array.isArray(state.status.auth.user.context_presets) ? state.status.auth.user.context_presets : [];
-    state.locationPresets = userLocationPresets();
-    if (!state.locationPresets.includes(state.location)) state.location = state.locationPresets[0] || 'home';
     await loadDogs();
+    await loadTaxonomy();
+    renderMeasurementControls();
     await loadEntries();
+    await loadTaxonomy();
+    renderMeasurementControls();
+    renderEntries();
     renderView();
   }
 }
@@ -332,11 +334,11 @@ function renderMeasurementControls() {
 function renderContextOptions() {
   const options = state.contextPresets;
   const selected = selectedContexts();
-  els.contextInput.value = selected.filter((context) => state.contextPresets.includes(context)).join(', ');
+  els.contextInput.value = selected.filter((context) => state.contextPresets.some((item) => item._id === context)).join(', ');
   els.contextButtons.innerHTML = options.map((context) => pillButton({
-    value: context,
-    label: context,
-    active: selected.includes(context),
+    value: context._id,
+    label: context.name,
+    active: selected.includes(context._id),
     deleteMode: state.contextDeleteMode,
     deleteCandidate: state.contextDeleteCandidate,
     attr: 'data-context',
@@ -362,11 +364,11 @@ function setSelectedContexts(contexts) {
 }
 
 function renderLocationOptions() {
-  if (!state.locationPresets.includes(state.location)) state.location = state.locationPresets[0] || 'home';
+  if (!state.locationPresets.some((location) => location._id === state.location)) state.location = state.locationPresets[0]?._id || '';
   els.locationButtons.innerHTML = state.locationPresets.map((location) => pillButton({
-    value: location,
-    label: locationLabel(location),
-    active: location === state.location,
+    value: location._id,
+    label: location.name,
+    active: location._id === state.location,
     deleteMode: state.locationDeleteMode,
     deleteCandidate: state.locationDeleteCandidate,
     attr: 'data-location',
@@ -525,6 +527,25 @@ async function loadDogs() {
   renderDogSelect();
 }
 
+async function loadTaxonomy() {
+  const [locationsResult, contextsResult] = await Promise.all([
+    api('objects', { query: { type: 'locations' } }),
+    api('objects', { query: { type: 'contexts' } }),
+  ]);
+  state.locationPresets = locationsResult.objects || [];
+  state.contextPresets = contextsResult.objects || [];
+  if (state.locationPresets.length === 0) {
+    const defaults = await Promise.all(['Zuhause', 'Schule', 'Unterwegs'].map((name) => (
+      api('object-create', { method: 'POST', body: { type: 'locations', object: { name } } })
+    )));
+    state.locationPresets = defaults.map((result) => result.object);
+  }
+  if (!state.locationPresets.some((location) => location._id === state.location)) {
+    state.location = state.locationPresets[0]?._id || '';
+  }
+  setSelectedContexts(selectedContexts().filter((id) => state.contextPresets.some((context) => context._id === id)));
+}
+
 function renderDogSelect() {
   const selected = els.dogSelect.value || state.dogs[0]?._id || '';
   const selectedDog = state.dogs.find((dog) => dog._id === selected) || state.dogs[0];
@@ -552,23 +573,23 @@ function renderEntries() {
 
   els.entriesList.innerHTML = state.entries.map((entry) => {
     const type = entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
-    const context = entry.context ? `<p class="muted">${escapeHtml(entry.context)}</p>` : '';
+    const context = contextSummary(entry);
     const notes = entry.notes || entry.comment ? `<p class="muted">${escapeHtml(entry.notes || entry.comment)}</p>` : '';
     const editing = state.editingEntryId === entry._id;
     return `
       <article class="entry ${editing ? 'is-editing' : ''}">
         <button class="entry-toggle" type="button" data-edit-entry="${escapeHtml(entry._id)}">
           <div>
-            <strong>${escapeHtml(entry.dog_name || 'Mein Hund')}</strong>
+            <strong>${escapeHtml(dogLabel(entry.dog_id))}</strong>
             <span class="muted">${formatDate(entry.measured_at || entry._created)}</span>
           </div>
           <div class="numbers">
             ${measurementChips(entry)}
             <span class="chip">${modeLabel(type, entry.mode)}</span>
-            <span class="chip">${locationLabel(entry.location)}</span>
+            <span class="chip">${locationLabel(entry.location_id)}</span>
           </div>
         </button>
-        ${context}
+        ${context ? `<p class="muted">${escapeHtml(context)}</p>` : ''}
         ${notes}
         ${editing ? renderEntryEditor(entry, type) : ''}
       </article>
@@ -605,20 +626,14 @@ function renderEntryEditor(entry, type) {
   const modeOptions = sharedModes.map(([value, label]) => (
     `<option value="${value}" ${value === entry.mode ? 'selected' : ''}>${label}</option>`
   )).join('');
-  const entryContext = entry.context || '';
-  const editorContexts = state.contextPresets.includes(entryContext) || entryContext === ''
-    ? state.contextPresets
-    : state.contextPresets.concat(entryContext);
-  const contextOptions = [''].concat(editorContexts).map((context) => (
-    `<option value="${escapeHtml(context)}" ${context === (entry.context || '') ? 'selected' : ''}>${escapeHtml(context)}</option>`
+  const entryContexts = Array.isArray(entry.context_ids) ? entry.context_ids : [];
+  const contextOptions = state.contextPresets.map((context) => (
+    `<option value="${escapeHtml(context._id)}" ${entryContexts.includes(context._id) ? 'selected' : ''}>${escapeHtml(context.name)}</option>`
   )).join('');
   const breathDuration = durationForEntry(entry, 'breath');
   const pulseDuration = durationForEntry(entry, 'pulse');
-  const editorLocations = state.locationPresets.includes(entry.location) || !entry.location
-    ? state.locationPresets
-    : state.locationPresets.concat(entry.location);
-  const locationOptions = editorLocations.map((location) => (
-    `<option value="${escapeHtml(location)}" ${location === (entry.location || state.location) ? 'selected' : ''}>${escapeHtml(locationLabel(location))}</option>`
+  const locationOptions = state.locationPresets.map((location) => (
+    `<option value="${escapeHtml(location._id)}" ${location._id === (entry.location_id || state.location) ? 'selected' : ''}>${escapeHtml(location.name)}</option>`
   )).join('');
 
   return `
@@ -667,13 +682,13 @@ function renderEntryEditor(entry, type) {
       </label>
       <label>
         Ort
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location">
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location_id">
           ${locationOptions}
         </select>
       </label>
       <label>
         Kontext
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context">${contextOptions}</select>
+        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context_ids" multiple>${contextOptions}</select>
       </label>
       <label class="entry-editor-wide">
         Notizen
@@ -703,20 +718,22 @@ async function saveEntryEdit(id) {
   const editor = els.entriesList.querySelector(`[data-entry-editor="${cssEscape(id)}"]`);
   if (!entry || !editor) return;
 
-  const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [input.dataset.field, input.value]));
+  const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [
+    input.dataset.field,
+    input.multiple ? Array.from(input.selectedOptions).map((option) => option.value) : input.value,
+  ]));
   const dog = state.dogs.find((item) => item._id === values.dog_id);
   const measurementType = ['breath', 'pulse', 'both'].includes(values.measurement_type) ? values.measurement_type : 'breath';
   const object = {
     measured_at: values.measured_at,
     dog_id: values.dog_id || '',
-    dog_name: dog?.name || entry.dog_name || 'Mein Hund',
     measurement_type: measurementType,
     mode: values.mode,
     duration_seconds: Number(values.breath_duration_seconds || values.pulse_duration_seconds || entry.duration_seconds || 15),
     breath_duration_seconds: measurementType === 'pulse' ? null : values.breath_duration_seconds,
     pulse_duration_seconds: measurementType === 'breath' ? null : values.pulse_duration_seconds,
-    location: values.location,
-    context: values.context,
+    location_id: values.location_id,
+    context_ids: values.context_ids,
     notes: values.notes,
     breaths_per_minute: measurementType === 'pulse' ? null : values.breaths_per_minute,
     pulse_per_minute: measurementType === 'breath' ? null : values.pulse_per_minute,
@@ -742,14 +759,13 @@ async function saveEntry(event) {
   const object = {
     measured_at: els.measuredAtInput.value || new Date().toISOString(),
     dog_id: dog?._id || '',
-    dog_name: dog?.name || 'Mein Hund',
     measurement_type: savedMeasurementType(),
     mode: state.mode,
     duration_seconds: savedDuration(),
     breath_duration_seconds: state.results.breath !== null ? state.resultDurations.breath : null,
     pulse_duration_seconds: state.results.pulse !== null ? state.resultDurations.pulse : null,
-    location: state.location,
-    context: els.contextInput.value,
+    location_id: state.location,
+    context_ids: selectedContexts(),
     notes: els.notesInput.value,
     breaths_per_minute: state.results.breath,
     pulse_per_minute: state.results.pulse,
@@ -787,13 +803,17 @@ function modeLabel(type, value) {
   return Object.fromEntries(modes[type] || sharedModes)[value] || value || 'Ruhend';
 }
 
-function userLocationPresets() {
-  const presets = state.status?.auth?.user?.location_presets;
-  return Array.isArray(presets) && presets.length > 0 ? presets : ['home', 'school', 'away'];
+function locationLabel(value) {
+  return state.locationPresets.find((location) => location._id === value)?.name || 'Ort';
 }
 
-function locationLabel(value) {
-  return { home: 'Zuhause', school: 'Schule', away: 'Unterwegs' }[value] || value || 'Zuhause';
+function dogLabel(value) {
+  return state.dogs.find((dog) => dog._id === value)?.name || 'Mein Hund';
+}
+
+function contextSummary(entry) {
+  const ids = Array.isArray(entry.context_ids) ? entry.context_ids : [];
+  return ids.map((id) => state.contextPresets.find((context) => context._id === id)?.name || '').filter(Boolean).join(', ');
 }
 
 function escapeHtml(value) {
@@ -867,26 +887,24 @@ els.deleteLocationButton.addEventListener('click', () => {
 async function addContext() {
   const value = window.prompt('Neuer Kontext');
   if (value === null) return;
-  const context = value.trim();
-  if (context === '') return;
+  const name = value.trim();
+  if (name === '') return;
 
-  const presets = state.contextPresets.filter((item) => item !== context).concat(context);
-  const result = await api('account-update', { method: 'POST', body: { context_presets: presets } });
-  state.contextPresets = result.user?.context_presets || result.account?.user?.context_presets || presets;
-  if (state.status?.auth?.user) state.status.auth.user.context_presets = state.contextPresets;
-  setSelectedContexts(selectedContexts().concat(context));
+  const result = await api('object-create', { method: 'POST', body: { type: 'contexts', object: { name } } });
+  state.contextPresets = state.contextPresets.filter((item) => item._id !== result.object._id).concat(result.object);
+  setSelectedContexts(selectedContexts().concat(result.object._id));
   renderContextOptions();
 }
 
 async function addLocation() {
   const value = window.prompt('Neuer Ort');
   if (value === null) return;
-  const location = value.trim();
-  if (location === '') return;
+  const name = value.trim();
+  if (name === '') return;
 
-  const presets = state.locationPresets.filter((item) => item !== location).concat(location);
-  await saveLocationPresets(presets);
-  state.location = location;
+  const result = await api('object-create', { method: 'POST', body: { type: 'locations', object: { name } } });
+  state.locationPresets = state.locationPresets.filter((item) => item._id !== result.object._id).concat(result.object);
+  state.location = result.object._id;
   renderLocationOptions();
 }
 
@@ -904,10 +922,10 @@ async function handleContextClick(context) {
     renderContextOptions();
     return;
   }
-  const presets = state.contextPresets.filter((item) => item !== context);
-  const result = await api('account-update', { method: 'POST', body: { context_presets: presets } });
-  state.contextPresets = result.user?.context_presets || result.account?.user?.context_presets || presets;
-  if (state.status?.auth?.user) state.status.auth.user.context_presets = state.contextPresets;
+  const item = state.contextPresets.find((preset) => preset._id === context);
+  if (!item) return;
+  await api('object-delete', { method: 'POST', body: { type: 'contexts', id: item._id, base_revision: item._revision } });
+  state.contextPresets = state.contextPresets.filter((preset) => preset._id !== context);
   setSelectedContexts(selectedContexts().filter((item) => item !== context));
   state.contextDeleteCandidate = '';
   renderContextOptions();
@@ -925,17 +943,13 @@ async function handleLocationClick(location) {
     renderLocationOptions();
     return;
   }
-  const presets = state.locationPresets.filter((item) => item !== location);
-  await saveLocationPresets(presets);
-  if (state.location === location) state.location = state.locationPresets[0] || 'home';
+  const item = state.locationPresets.find((preset) => preset._id === location);
+  if (!item) return;
+  await api('object-delete', { method: 'POST', body: { type: 'locations', id: item._id, base_revision: item._revision } });
+  state.locationPresets = state.locationPresets.filter((preset) => preset._id !== location);
+  if (state.location === location) state.location = state.locationPresets[0]?._id || '';
   state.locationDeleteCandidate = '';
   renderLocationOptions();
-}
-
-async function saveLocationPresets(presets) {
-  const result = await api('account-update', { method: 'POST', body: { location_presets: presets } });
-  state.locationPresets = result.user?.location_presets || result.account?.user?.location_presets || presets;
-  if (state.status?.auth?.user) state.status.auth.user.location_presets = state.locationPresets;
 }
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {

@@ -27,13 +27,14 @@ final class AuthStore
      */
     public function __construct(string $basePath, array $config = [])
     {
-        $this->authPath = rtrim($basePath, '/\\') . '/var/auth';
-        $this->usersPath = $this->authPath . '/users.json';
+        $basePath = rtrim($basePath, '/\\');
+        $this->authPath = $basePath . '/var/auth';
+        $this->usersPath = $basePath . '/data';
         $this->tokensPath = $this->authPath . '/setup_tokens.json';
         $this->challengesPath = $this->authPath . '/challenges.json';
         $this->loginLinksPath = $this->authPath . '/login_links.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
-        $this->bootstrapPath = rtrim($basePath, '/\\') . '/bootstrap_setup.txt';
+        $this->bootstrapPath = $basePath . '/bootstrap_setup.txt';
         $this->configureInitialAdmin($config);
 
         $this->ensureFiles();
@@ -127,7 +128,6 @@ final class AuthStore
                 'permissions' => $permissions,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
                 'credentials' => [],
-                'context_presets' => [],
                 'created_at' => $now,
                 'created_by' => $createdBy,
                 'updated_at' => $now,
@@ -179,14 +179,6 @@ final class AuthStore
                 $user['permissions'] = $this->normalizePermissions($patch['permissions']);
             }
 
-            if (array_key_exists('context_presets', $patch) && is_array($patch['context_presets'])) {
-                $user['context_presets'] = $this->normalizeContextPresets($patch['context_presets']);
-            }
-
-            if (array_key_exists('location_presets', $patch) && is_array($patch['location_presets'])) {
-                $user['location_presets'] = $this->normalizeContextPresets($patch['location_presets']);
-            }
-
             $user['updated_at'] = $this->now();
             $user['updated_by'] = $updatedBy;
             $data['users'][$index] = $user;
@@ -214,13 +206,6 @@ final class AuthStore
         if (array_key_exists('email', $patch)) {
             $allowedPatch['email'] = $patch['email'];
         }
-        if (array_key_exists('context_presets', $patch)) {
-            $allowedPatch['context_presets'] = is_array($patch['context_presets']) ? $patch['context_presets'] : [];
-        }
-        if (array_key_exists('location_presets', $patch)) {
-            $allowedPatch['location_presets'] = is_array($patch['location_presets']) ? $patch['location_presets'] : [];
-        }
-
         return $this->updateUser($username, $allowedPatch, $username, true, true);
     }
 
@@ -271,7 +256,7 @@ final class AuthStore
             }));
             $remainingManagers = array_filter($remainingUsers, static function (array $candidate): bool {
                 $permissions = is_array($candidate['permissions'] ?? null) ? $candidate['permissions'] : [];
-                return ($candidate['enabled'] ?? false) && in_array('manage_users', $permissions, true);
+                return ($candidate['enabled'] ?? false) && in_array('manage_users', $this->normalizePermissions($permissions), true);
             });
 
             if (!$remainingManagers) {
@@ -861,8 +846,10 @@ final class AuthStore
         if (!is_dir($this->authPath) && !mkdir($this->authPath, 0775, true) && !is_dir($this->authPath)) {
             throw new RuntimeException('Could not create auth directory.');
         }
+        if (!is_dir($this->usersPath) && !mkdir($this->usersPath, 0775, true) && !is_dir($this->usersPath)) {
+            throw new RuntimeException('Could not create users directory.');
+        }
 
-        $this->ensureJsonFile($this->usersPath, $this->defaultUsers());
         $this->ensureJsonFile($this->tokensPath, $this->defaultTokens());
         $this->ensureJsonFile($this->challengesPath, $this->defaultChallenges());
         $this->ensureJsonFile($this->loginLinksPath, $this->defaultLoginLinks());
@@ -1036,8 +1023,6 @@ final class AuthStore
             'updated_at' => $user['updated_at'] ?? null,
             'last_login_at' => $user['last_login_at'] ?? null,
             'needs_setup' => count($user['credentials'] ?? []) === 0,
-            'context_presets' => $this->normalizeContextPresets(is_array($user['context_presets'] ?? null) ? $user['context_presets'] : []),
-            'location_presets' => $this->normalizeContextPresets(is_array($user['location_presets'] ?? null) ? $user['location_presets'] : []),
         ];
     }
 
@@ -1218,6 +1203,10 @@ final class AuthStore
      */
     private function readJson(string $path, array $default): array
     {
+        if ($path === $this->usersPath) {
+            return $this->readUsers();
+        }
+
         if (!is_file($path)) {
             return $default;
         }
@@ -1245,6 +1234,11 @@ final class AuthStore
      */
     private function writeJson(string $path, array $data): void
     {
+        if ($path === $this->usersPath) {
+            $this->writeUsers($data);
+            return;
+        }
+
         $tmp = $path . '.tmp.' . bin2hex(random_bytes(6));
         $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         if ($json === false || file_put_contents($tmp, $json . PHP_EOL, LOCK_EX) === false) {
@@ -1263,7 +1257,7 @@ final class AuthStore
      */
     private function updateJson(string $path, array $default, callable $callback)
     {
-        $lockPath = $path . '.lock';
+        $lockPath = $path === $this->usersPath ? $this->usersPath . '/.users.lock' : $path . '.lock';
         $lock = fopen($lockPath, 'c');
         if ($lock === false || !flock($lock, LOCK_EX)) {
             throw new RuntimeException('Could not lock auth JSON.');
@@ -1376,4 +1370,78 @@ final class AuthStore
     {
         return gmdate('Y-m-d\TH:i:s\Z');
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readUsers(): array
+    {
+        if (!is_dir($this->usersPath)) {
+            return $this->defaultUsers();
+        }
+
+        $users = [];
+        $files = glob($this->usersPath . '/*/user.json');
+        foreach (is_array($files) ? $files : [] as $file) {
+            $raw = file_get_contents($file);
+            if ($raw === false || trim($raw) === '') {
+                continue;
+            }
+
+            try {
+                $user = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException) {
+                continue;
+            }
+
+            if (is_array($user)) {
+                $user['permissions'] = $this->normalizePermissions(is_array($user['permissions'] ?? null) ? $user['permissions'] : []);
+                $users[] = $user;
+            }
+        }
+
+        return ['schema_version' => 3, 'users' => $users];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function writeUsers(array $data): void
+    {
+        if (!is_dir($this->usersPath)) {
+            mkdir($this->usersPath, 0775, true);
+        }
+
+        $seen = [];
+        foreach (($data['users'] ?? []) as $user) {
+            if (!is_array($user)) {
+                continue;
+            }
+
+            $username = $this->normalizeUsername((string) ($user['username'] ?? ''), false);
+            $user['username'] = $username;
+            $user['permissions'] = $this->normalizePermissions(is_array($user['permissions'] ?? null) ? $user['permissions'] : []);
+            $seen[strtolower($username)] = true;
+
+            $directory = $this->usersPath . '/' . $username;
+            if (!is_dir($directory)) {
+                mkdir($directory, 0775, true);
+            }
+            foreach (['dogs', 'locations', 'contexts', 'vitals'] as $type) {
+                if (!is_dir($directory . '/' . $type)) {
+                    mkdir($directory . '/' . $type, 0775, true);
+                }
+            }
+            $this->writeJson($directory . '/user.json', $user);
+        }
+
+        $files = glob($this->usersPath . '/*/user.json');
+        foreach (is_array($files) ? $files : [] as $file) {
+            $username = basename(dirname($file));
+            if (!isset($seen[strtolower($username)])) {
+                @unlink($file);
+            }
+        }
+    }
+
 }

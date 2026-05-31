@@ -37,7 +37,8 @@ function require_user(AuthStore $auth): array
 function require_permission(AuthStore $auth, string $permission): array
 {
     $user = require_user($auth);
-    if (!in_array($permission, $user['permissions'], true)) {
+    $permissions = is_array($user['permissions'] ?? null) ? $user['permissions'] : [];
+    if (!in_array($permission, $permissions, true)) {
         Http::json(['ok' => false, 'error' => 'Permission denied'], 403);
     }
 
@@ -93,21 +94,6 @@ function require_csrf(AuthStore $auth, array $body): void
 }
 
 /**
- * @param array<string, mixed> $object
- */
-function require_owned_object(AuthStore $auth, string $type, array $object): void
-{
-    if (!in_array($type, ['vitals', 'dogs'], true) || $auth->hasPermission('manage_users')) {
-        return;
-    }
-
-    $user = require_user($auth);
-    if (($object['owner_username'] ?? '') !== ($user['username'] ?? '')) {
-        Http::json(['ok' => false, 'error' => 'Permission denied'], 403);
-    }
-}
-
-/**
  * @param array<string, mixed> $payload
  */
 function email_login_json(float $startedAt, array $payload, int $status = 200): void
@@ -129,6 +115,8 @@ try {
             $authStatus = $auth->status();
             $access = object_access($auth);
             $includeCounts = ($_GET['counts'] ?? '1') !== '0';
+            $currentUser = is_array($authStatus['user'] ?? null) ? $authStatus['user'] : null;
+            $username = $currentUser !== null ? (string) ($currentUser['username'] ?? '') : null;
             Http::json([
                 'ok' => true,
                 'app' => [
@@ -143,22 +131,16 @@ try {
                     'login_enabled' => $mailer->isLoginEnabled(),
                 ],
                 'webauthn' => $webauthn->publicContext(),
-                'storage' => $storage->status($access, $includeCounts),
+                'storage' => $storage->status($access, $includeCounts, $username),
             ]);
             break;
 
         case 'objects':
             Http::requireMethod('GET');
+            $user = require_user($auth);
             $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
-            $objects = $storage->listObjects($type, $access);
-            if (in_array($type, ['vitals', 'dogs'], true) && !$auth->hasPermission('manage_users')) {
-                $currentUser = $auth->currentUser();
-                $username = is_array($currentUser) ? (string) ($currentUser['username'] ?? '') : '';
-                $objects = array_values(array_filter($objects, static function (array $object) use ($username): bool {
-                    return $username !== '' && ($object['owner_username'] ?? '') === $username;
-                }));
-            }
+            $objects = $storage->listObjects($type, $access, (string) $user['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -168,20 +150,20 @@ try {
 
         case 'object-changes':
             Http::requireMethod('GET');
-            require_permission($auth, 'manage_users');
+            $user = require_user($auth);
             Http::json([
                 'ok' => true,
-                'changes' => $storage->recentChanges(object_access($auth)),
+                'changes' => $storage->recentChanges(object_access($auth), (string) $user['username']),
             ]);
             break;
 
         case 'object':
             Http::requireMethod('GET');
+            $user = require_user($auth);
             $access = object_access($auth);
             $type = (string) ($_GET['type'] ?? '');
             $id = (string) ($_GET['id'] ?? '');
-            $object = $storage->readObject($type, $id, $access);
-            require_owned_object($auth, $type, $object);
+            $object = $storage->readObject($type, $id, $access, (string) $user['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
@@ -207,7 +189,7 @@ try {
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->createObject($type, $payload, data_username($editor), object_access($auth), edit_source($body, $editor)),
+                'object' => $storage->createObject($type, $payload, (string) $editor['username'], object_access($auth), edit_source($body, $editor)),
             ]);
             break;
 
@@ -221,11 +203,11 @@ try {
             $payload = is_array($body['object'] ?? null) ? $body['object'] : (is_array($body['patch'] ?? null) ? $body['patch'] : []);
             $baseRevision = (int) ($body['base_revision'] ?? 0);
             $initialWrite = ($body['initial_revision'] ?? false) === true;
-            require_owned_object($auth, $type, $storage->readObject($type, $id, object_access($auth)));
+            $storage->readObject($type, $id, object_access($auth), (string) $editor['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, data_username($editor), object_access($auth), edit_source($body, $editor), $initialWrite),
+                'object' => $storage->updateObject($type, $id, $baseRevision, $payload, (string) $editor['username'], object_access($auth), edit_source($body, $editor), $initialWrite),
             ]);
             break;
 
@@ -237,11 +219,11 @@ try {
             $type = (string) ($body['type'] ?? '');
             $id = (string) ($body['id'] ?? '');
             $baseRevision = (int) ($body['base_revision'] ?? 0);
-            require_owned_object($auth, $type, $storage->readObject($type, $id, object_access($auth)));
+            $storage->readObject($type, $id, object_access($auth), (string) $editor['username']);
             Http::json([
                 'ok' => true,
                 'type' => $type,
-                'object' => $storage->deleteObject($type, $id, $baseRevision, data_username($editor), object_access($auth), edit_source($body, $editor)),
+                'object' => $storage->deleteObject($type, $id, $baseRevision, (string) $editor['username'], object_access($auth), edit_source($body, $editor)),
             ]);
             break;
 
