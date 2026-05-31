@@ -423,6 +423,26 @@ main {
   gap: 0.55rem;
 }
 
+.record-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  flex: 1 1 100%;
+}
+
+.record-tools select {
+  min-height: 40px;
+  padding: 0.45rem 0.55rem;
+}
+
+.single-dog-name {
+  color: var(--muted);
+  align-self: center;
+  font-weight: 900;
+  min-height: 40px;
+  padding: 0.45rem 0;
+}
+
 .tap-button {
   width: 100%;
   min-height: min(46vh, 18rem);
@@ -586,6 +606,78 @@ textarea {
   gap: 0.65rem;
 }
 
+.records-table {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.record-grid {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1.25fr) minmax(6.5rem, 0.9fr) minmax(5.5rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
+  gap: 0.7rem;
+  align-items: center;
+  min-width: 860px;
+}
+
+.record-grid.has-dog-column {
+  grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.25fr) minmax(6.5rem, 0.9fr) minmax(5.5rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
+  min-width: 960px;
+}
+
+.record-head {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--accent-2);
+  font-size: 0.74rem;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.record-row.entry {
+  gap: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.record-row.entry:last-child {
+  border-bottom: 0;
+}
+
+.record-row.is-editing {
+  background: #101f22;
+}
+
+.record-row .entry-toggle {
+  padding: 0.75rem;
+}
+
+.record-time,
+.record-value,
+.record-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.record-time {
+  display: grid;
+}
+
+.record-context,
+.record-notes {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.record-notes {
+  min-width: 0;
+}
+
 .entry,
 .user-row {
   display: grid;
@@ -717,6 +809,7 @@ footer {
   .form-grid,
   .inline-form,
   .location-grid,
+  .record-tools,
   .entry-editor {
     grid-template-columns: 1fr;
   }

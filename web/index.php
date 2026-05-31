@@ -161,7 +161,22 @@ $configWarnings = array_map(
         <section class="history" id="recordsView" hidden>
           <div class="section-head">
             <h2>Verlauf</h2>
-            <button id="refreshButton" type="button">Aktualisieren</button>
+            <div class="record-tools">
+              <select id="recordDogFilter" aria-label="Hund filtern" hidden>
+                <option value="">Alle Hunde</option>
+              </select>
+              <span class="single-dog-name" id="recordSingleDogName" hidden></span>
+              <select id="recordTypeFilter" aria-label="Messart filtern">
+                <option value="">Alle Messungen</option>
+                <option value="breath">Atemfrequenz</option>
+                <option value="pulse">Pulse</option>
+                <option value="both">Beides</option>
+              </select>
+              <select id="recordSort" aria-label="Verlauf sortieren">
+                <option value="newest">Neueste zuerst</option>
+                <option value="oldest">Älteste zuerst</option>
+              </select>
+            </div>
           </div>
           <div id="entriesList" class="entries"></div>
         </section>

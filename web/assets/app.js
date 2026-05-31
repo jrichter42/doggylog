@@ -36,6 +36,9 @@ const state = {
   resultTaps: { breath: 0, pulse: 0 },
   resultDurations: { breath: null, pulse: null },
   resetConfirmation: false,
+  recordDogFilter: '',
+  recordTypeFilter: '',
+  recordSort: 'newest',
   editingEntryId: null,
   saveTimers: new Map(),
 };
@@ -86,7 +89,10 @@ const els = {
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
   saveState: $('saveState'),
-  refreshButton: $('refreshButton'),
+  recordDogFilter: $('recordDogFilter'),
+  recordSingleDogName: $('recordSingleDogName'),
+  recordTypeFilter: $('recordTypeFilter'),
+  recordSort: $('recordSort'),
   entriesList: $('entriesList'),
   viewTabs: document.querySelectorAll('[data-view-tab]'),
 };
@@ -616,36 +622,100 @@ function renderDogSelect() {
   });
 }
 
+function renderRecordFilters() {
+  const hasMultipleDogs = state.dogs.length > 1;
+  const selectedDog = state.recordDogFilter;
+  els.recordDogFilter.hidden = !hasMultipleDogs;
+  els.recordSingleDogName.hidden = hasMultipleDogs;
+  els.recordSingleDogName.textContent = state.dogs[0]?.name || 'Mein Hund';
+  els.recordDogFilter.innerHTML = '<option value="">Alle Hunde</option>' + state.dogs.map((dog) => (
+    `<option value="${escapeHtml(dog._id)}" ${dog._id === selectedDog ? 'selected' : ''}>${escapeHtml(dog.name || 'Mein Hund')}</option>`
+  )).join('');
+  if (!hasMultipleDogs || (selectedDog && !state.dogs.some((dog) => dog._id === selectedDog))) {
+    state.recordDogFilter = '';
+    els.recordDogFilter.value = '';
+  }
+  els.recordTypeFilter.value = state.recordTypeFilter;
+  els.recordSort.value = state.recordSort;
+}
+
+function entryType(entry) {
+  return entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
+}
+
+function entryTime(entry) {
+  const date = new Date(entry.measured_at || entry._created || 0);
+  const time = date.getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function visibleEntries() {
+  const hasMultipleDogs = state.dogs.length > 1;
+  const entries = state.entries.filter((entry) => {
+    const type = entryType(entry);
+    return (!hasMultipleDogs || !state.recordDogFilter || entry.dog_id === state.recordDogFilter)
+      && (!state.recordTypeFilter || type === state.recordTypeFilter);
+  });
+  entries.sort((a, b) => {
+    const direction = state.recordSort === 'oldest' ? 1 : -1;
+    return (entryTime(a) - entryTime(b)) * direction;
+  });
+  return entries;
+}
+
 function renderEntries() {
+  renderRecordFilters();
+  const entries = visibleEntries();
   if (state.entries.length === 0) {
     els.entriesList.innerHTML = '<p class="muted">Noch keine Messungen.</p>';
     return;
   }
+  if (entries.length === 0) {
+    els.entriesList.innerHTML = '<p class="muted">Keine Messungen für diesen Filter.</p>';
+    return;
+  }
 
-  els.entriesList.innerHTML = state.entries.map((entry) => {
-    const type = entry.measurement_type || (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined ? 'pulse' : 'breath');
+  const hasDogColumn = state.dogs.length > 1;
+  const rows = entries.map((entry) => {
+    const type = entryType(entry);
     const context = contextSummary(entry);
-    const notes = entry.notes || entry.comment ? `<p class="muted">${escapeHtml(entry.notes || entry.comment)}</p>` : '';
+    const notes = entry.notes || entry.comment || '';
     const editing = state.editingEntryId === entry._id;
     return `
-      <article class="entry ${editing ? 'is-editing' : ''}">
-        <button class="entry-toggle" type="button" data-edit-entry="${escapeHtml(entry._id)}">
-          <div>
-            <strong>${escapeHtml(dogLabel(entry.dog_id))}</strong>
-            <span class="muted">${formatDate(entry.measured_at || entry._created)}</span>
-          </div>
-          <div class="numbers">
-            ${measurementChips(entry)}
-            <span class="chip">${modeLabel(type, entry.mode)}</span>
-            <span class="chip">${locationLabel(entry.location_id)}</span>
-          </div>
+      <article class="entry record-row ${editing ? 'is-editing' : ''}">
+        <button class="entry-toggle record-grid ${hasDogColumn ? 'has-dog-column' : ''}" type="button" data-edit-entry="${escapeHtml(entry._id)}">
+          ${hasDogColumn ? `<span class="record-dog"><strong>${escapeHtml(dogLabel(entry.dog_id))}</strong></span>` : ''}
+          <span class="record-time">
+            <span>${formatDate(entry.measured_at || entry._created)}</span>
+            <span class="muted">${relativeTime(entry.measured_at || entry._created)}</span>
+          </span>
+          <span class="record-value">${formatRecordValue(entry.breaths_per_minute)}</span>
+          <span class="record-value">${formatRecordValue(entry.pulse_per_minute)}</span>
+          <span>${escapeHtml(modeLabel(type, entry.mode))}</span>
+          <span>${escapeHtml(locationLabel(entry.location_id))}</span>
+          <span class="record-context">${escapeHtml(context || '')}</span>
+          <span class="record-notes">${escapeHtml(notes || '')}</span>
         </button>
-        ${context ? `<p class="muted">${escapeHtml(context)}</p>` : ''}
-        ${notes}
         ${editing ? renderEntryEditor(entry, type) : ''}
       </article>
     `;
   }).join('');
+
+  els.entriesList.innerHTML = `
+    <div class="records-table">
+      <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}" aria-hidden="true">
+        ${hasDogColumn ? '<span>Hund</span>' : ''}
+        <span>Zeit</span>
+        <span>Atemfrequenz</span>
+        <span>Pulse</span>
+        <span>Modus</span>
+        <span>Ort</span>
+        <span>Kontext</span>
+        <span>Notizen</span>
+      </div>
+      ${rows}
+    </div>
+  `;
 
   els.entriesList.querySelectorAll('[data-edit-entry]').forEach((button) => {
     button.addEventListener('click', () => toggleEntryEditor(button.dataset.editEntry));
@@ -668,6 +738,11 @@ function measurementChips(entry) {
     chips.push(`<span class="chip">Pulse ${escapeHtml(entry.pulse_per_minute)}</span>`);
   }
   return chips.join('') || '<span class="chip">Messung</span>';
+}
+
+function formatRecordValue(value) {
+  if (value === null || value === undefined || value === '') return '<span class="muted">-</span>';
+  return `<strong>${escapeHtml(value)}</strong> <span class="muted">bpm</span>`;
 }
 
 function renderEntryEditor(entry, type) {
@@ -842,6 +917,23 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function relativeTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  const diff = Date.now() - date.getTime();
+  if (Number.isNaN(diff)) return '';
+  const abs = Math.abs(diff);
+  const units = [
+    [60 * 1000, 'gerade eben'],
+    [60 * 60 * 1000, `${Math.round(abs / 60000)} Min. her`],
+    [24 * 60 * 60 * 1000, `${Math.round(abs / 3600000)} Std. her`],
+    [7 * 24 * 60 * 60 * 1000, `${Math.round(abs / 86400000)} Tg. her`],
+  ];
+  const match = units.find(([limit]) => abs < limit);
+  if (match) return match[1];
+  return `${Math.round(abs / 604800000)} Wo. her`;
+}
+
 function dateTimeLocalValue(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -890,7 +982,10 @@ els.loginButton.addEventListener('click', () => {
   els.authScreen.hidden = false;
 });
 els.viewTabs.forEach((tab) => {
-  tab.addEventListener('click', () => switchView(tab.dataset.viewTab));
+  tab.addEventListener('click', () => {
+    switchView(tab.dataset.viewTab);
+    if (tab.dataset.viewTab === 'records') loadEntries().catch((error) => setMessage(error.message, true));
+  });
 });
 els.loginEmailForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -1024,7 +1119,20 @@ els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((erro
   els.saveState.hidden = false;
   els.saveState.textContent = error.message;
 }));
-els.refreshButton.addEventListener('click', () => loadEntries().catch((error) => setMessage(error.message, true)));
+els.recordDogFilter.addEventListener('change', () => {
+  state.recordDogFilter = els.recordDogFilter.value;
+  state.editingEntryId = null;
+  renderEntries();
+});
+els.recordTypeFilter.addEventListener('change', () => {
+  state.recordTypeFilter = els.recordTypeFilter.value;
+  state.editingEntryId = null;
+  renderEntries();
+});
+els.recordSort.addEventListener('change', () => {
+  state.recordSort = els.recordSort.value;
+  renderEntries();
+});
 renderMeasurementControls();
 switchView(state.view, false);
 
