@@ -172,13 +172,10 @@ $configWarnings = array_map(
                 <option value="pulse">Pulse</option>
                 <option value="both">Beides</option>
               </select>
-              <select id="recordSort" aria-label="Verlauf sortieren">
-                <option value="newest">Neueste zuerst</option>
-                <option value="oldest">Älteste zuerst</option>
-              </select>
             </div>
           </div>
           <div id="entriesList" class="entries"></div>
+          <section class="record-editor-page" id="recordEditorPage" hidden></section>
         </section>
       </section>
     </main>

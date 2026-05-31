@@ -425,7 +425,7 @@ main {
 
 .record-tools {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
   flex: 1 1 100%;
 }
@@ -615,14 +615,14 @@ textarea {
 
 .record-grid {
   display: grid;
-  grid-template-columns: minmax(8rem, 1.25fr) minmax(6.5rem, 0.9fr) minmax(5.5rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
+  grid-template-columns: minmax(8rem, 1.25fr) minmax(8.8rem, 0.95fr) minmax(5.8rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
   gap: 0.7rem;
   align-items: center;
   min-width: 860px;
 }
 
 .record-grid.has-dog-column {
-  grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.25fr) minmax(6.5rem, 0.9fr) minmax(5.5rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
+  grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.25fr) minmax(8.8rem, 0.95fr) minmax(5.8rem, 0.8fr) minmax(5.5rem, 0.85fr) minmax(5.5rem, 0.9fr) minmax(6rem, 1fr) minmax(7rem, 1.1fr);
   min-width: 960px;
 }
 
@@ -633,6 +633,33 @@ textarea {
   font-size: 0.74rem;
   font-weight: 1000;
   text-transform: uppercase;
+}
+
+.record-sort-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.28rem;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  text-transform: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  white-space: nowrap;
+}
+
+.record-sort-button.is-active-sort {
+  color: var(--accent);
+}
+
+.sort-arrow {
+  font-size: 1.15rem;
+  font-weight: 1000;
+  line-height: 0.8;
 }
 
 .record-row.entry {
@@ -665,7 +692,12 @@ textarea {
 }
 
 .record-time {
-  display: grid;
+  display: block;
+}
+
+.date-separator {
+  color: var(--line);
+  font-weight: 1000;
 }
 
 .record-context,
@@ -676,6 +708,39 @@ textarea {
 
 .record-notes {
   min-width: 0;
+}
+
+.history.is-editing-record .section-head,
+.history.is-editing-record .entries {
+  display: none;
+}
+
+.record-editor-page {
+  display: grid;
+}
+
+.record-edit-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.record-back-button {
+  justify-self: start;
+}
+
+.record-value-editor {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.record-value-editor .meter-meta {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.entry-duration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 .entry,
@@ -810,6 +875,8 @@ footer {
   .inline-form,
   .location-grid,
   .record-tools,
+  .record-value-editor,
+  .entry-duration-grid,
   .entry-editor {
     grid-template-columns: 1fr;
   }

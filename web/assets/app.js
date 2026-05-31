@@ -38,8 +38,10 @@ const state = {
   resetConfirmation: false,
   recordDogFilter: '',
   recordTypeFilter: '',
-  recordSort: 'newest',
+  recordSortColumn: 'time',
+  recordSortDirection: 'desc',
   editingEntryId: null,
+  recordScrollY: 0,
   saveTimers: new Map(),
 };
 
@@ -92,8 +94,8 @@ const els = {
   recordDogFilter: $('recordDogFilter'),
   recordSingleDogName: $('recordSingleDogName'),
   recordTypeFilter: $('recordTypeFilter'),
-  recordSort: $('recordSort'),
   entriesList: $('entriesList'),
+  recordEditorPage: $('recordEditorPage'),
   viewTabs: document.querySelectorAll('[data-view-tab]'),
 };
 
@@ -636,7 +638,6 @@ function renderRecordFilters() {
     els.recordDogFilter.value = '';
   }
   els.recordTypeFilter.value = state.recordTypeFilter;
-  els.recordSort.value = state.recordSort;
 }
 
 function entryType(entry) {
@@ -657,14 +658,54 @@ function visibleEntries() {
       && (!state.recordTypeFilter || type === state.recordTypeFilter);
   });
   entries.sort((a, b) => {
-    const direction = state.recordSort === 'oldest' ? 1 : -1;
-    return (entryTime(a) - entryTime(b)) * direction;
+    const direction = state.recordSortDirection === 'asc' ? 1 : -1;
+    return compareRecordValues(sortValue(a, state.recordSortColumn), sortValue(b, state.recordSortColumn)) * direction;
   });
   return entries;
 }
 
+function sortValue(entry, column) {
+  if (column === 'dog') return dogLabel(entry.dog_id);
+  if (column === 'time') return entryTime(entry);
+  if (column === 'breath') return numberSortValue(entry.breaths_per_minute);
+  if (column === 'pulse') return numberSortValue(entry.pulse_per_minute);
+  if (column === 'mode') return modeLabel(entryType(entry), entry.mode);
+  if (column === 'location') return locationLabel(entry.location_id);
+  if (column === 'context') return contextSummary(entry);
+  if (column === 'notes') return entry.notes || entry.comment || '';
+  return '';
+}
+
+function numberSortValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : -1;
+}
+
+function compareRecordValues(a, b) {
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), 'de', { numeric: true, sensitivity: 'base' });
+}
+
+function sortHeader(column, label) {
+  const active = state.recordSortColumn === column;
+  const marker = active ? (state.recordSortDirection === 'asc' ? '↑' : '↓') : '';
+  return `<button class="record-sort-button ${active ? 'is-active-sort' : ''}" type="button" data-record-sort="${column}"><span>${escapeHtml(label)}</span>${marker ? `<span class="sort-arrow" aria-hidden="true">${marker}</span>` : ''}</button>`;
+}
+
+function sortRecords(column) {
+  if (state.recordSortColumn === column) {
+    state.recordSortDirection = state.recordSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.recordSortColumn = column;
+    state.recordSortDirection = column === 'time' ? 'desc' : 'asc';
+  }
+  renderEntries();
+}
+
 function renderEntries() {
   renderRecordFilters();
+  renderRecordEditor();
+  els.entriesList.hidden = !els.recordEditorPage.hidden;
   const entries = visibleEntries();
   if (state.entries.length === 0) {
     els.entriesList.innerHTML = '<p class="muted">Noch keine Messungen.</p>';
@@ -680,14 +721,12 @@ function renderEntries() {
     const type = entryType(entry);
     const context = contextSummary(entry);
     const notes = entry.notes || entry.comment || '';
-    const editing = state.editingEntryId === entry._id;
     return `
-      <article class="entry record-row ${editing ? 'is-editing' : ''}">
+      <article class="entry record-row">
         <button class="entry-toggle record-grid ${hasDogColumn ? 'has-dog-column' : ''}" type="button" data-edit-entry="${escapeHtml(entry._id)}">
           ${hasDogColumn ? `<span class="record-dog"><strong>${escapeHtml(dogLabel(entry.dog_id))}</strong></span>` : ''}
           <span class="record-time">
-            <span>${formatDate(entry.measured_at || entry._created)}</span>
-            <span class="muted">${relativeTime(entry.measured_at || entry._created)}</span>
+            <span>${formatDateWithRelative(entry.measured_at || entry._created)}</span>
           </span>
           <span class="record-value">${formatRecordValue(entry.breaths_per_minute)}</span>
           <span class="record-value">${formatRecordValue(entry.pulse_per_minute)}</span>
@@ -696,36 +735,31 @@ function renderEntries() {
           <span class="record-context">${escapeHtml(context || '')}</span>
           <span class="record-notes">${escapeHtml(notes || '')}</span>
         </button>
-        ${editing ? renderEntryEditor(entry, type) : ''}
       </article>
     `;
   }).join('');
 
   els.entriesList.innerHTML = `
     <div class="records-table">
-      <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}" aria-hidden="true">
-        ${hasDogColumn ? '<span>Hund</span>' : ''}
-        <span>Zeit</span>
-        <span>Atemfrequenz</span>
-        <span>Pulse</span>
-        <span>Modus</span>
-        <span>Ort</span>
-        <span>Kontext</span>
-        <span>Notizen</span>
+      <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}">
+        ${hasDogColumn ? sortHeader('dog', 'Hund') : ''}
+        ${sortHeader('time', 'Zeit')}
+        ${sortHeader('breath', 'Atemfrequenz')}
+        ${sortHeader('pulse', 'Pulse')}
+        ${sortHeader('mode', 'Modus')}
+        ${sortHeader('location', 'Ort')}
+        ${sortHeader('context', 'Kontext')}
+        ${sortHeader('notes', 'Notizen')}
       </div>
       ${rows}
     </div>
   `;
 
   els.entriesList.querySelectorAll('[data-edit-entry]').forEach((button) => {
-    button.addEventListener('click', () => toggleEntryEditor(button.dataset.editEntry));
+    button.addEventListener('click', () => openEntryEditor(button.dataset.editEntry));
   });
-  els.entriesList.querySelectorAll('[data-delete-entry]').forEach((button) => {
-    button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
-  });
-  els.entriesList.querySelectorAll('[data-autosave-entry]').forEach((input) => {
-    const eventName = input.tagName === 'TEXTAREA' || input.type === 'number' || input.type === 'datetime-local' ? 'input' : 'change';
-    input.addEventListener(eventName, () => queueEntrySave(input.dataset.autosaveEntry));
+  els.entriesList.querySelectorAll('[data-record-sort]').forEach((button) => {
+    button.addEventListener('click', () => sortRecords(button.dataset.recordSort));
   });
 }
 
@@ -761,77 +795,122 @@ function renderEntryEditor(entry, type) {
   const locationOptions = state.locationPresets.map((location) => (
     `<option value="${escapeHtml(location._id)}" ${location._id === (entry.location_id || state.location) ? 'selected' : ''}>${escapeHtml(location.name)}</option>`
   )).join('');
+  const showDog = state.dogs.length > 1;
 
   return `
-    <div class="entry-editor" data-entry-editor="${escapeHtml(entry._id)}">
-      <label>
-        Zeitpunkt
+    <div class="record-edit-form" data-entry-editor="${escapeHtml(entry._id)}">
+      <button class="secondary-action record-back-button" type="button" data-record-back>Zurück</button>
+      <div class="choice-block">
+        <span class="control-title">Zeitpunkt</span>
         <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
-      </label>
-      <label>
-        Hund
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="dog_id">${dogOptions}</select>
-      </label>
-      <label>
-        Messart
+      </div>
+      ${showDog ? `
+        <div class="choice-block">
+          <span class="control-title">Hund</span>
+          <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="dog_id">${dogOptions}</select>
+        </div>
+      ` : `<input type="hidden" data-field="dog_id" value="${escapeHtml(entry.dog_id || state.dogs[0]?._id || '')}">`}
+      <div class="choice-block">
+        <span class="control-title">Messung</span>
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="measurement_type">
           <option value="breath" ${type === 'breath' ? 'selected' : ''}>Atemfrequenz</option>
           <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Pulse</option>
           <option value="both" ${type === 'both' ? 'selected' : ''}>Beides</option>
         </select>
-      </label>
-      <label>
-        Atemfrequenz
-        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
-      </label>
-      <label>
-        Pulse
-        <input type="number" min="0" max="400" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
-      </label>
-      <label>
-        Modus
+      </div>
+      <div class="meter-stage record-value-editor">
+        <div class="meter-meta">
+          <span>Werte bearbeiten</span>
+          <span>bpm</span>
+        </div>
+        <label>
+          Atemfrequenz
+          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
+        </label>
+        <label>
+          Pulse
+          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
+        </label>
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Modus</span>
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="mode">${modeOptions}</select>
-      </label>
-      <label>
-        Dauer Atemfrequenz
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="breath_duration_seconds">
-          <option value="15" ${breathDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
-          <option value="30" ${breathDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
-        </select>
-      </label>
-      <label>
-        Dauer Puls
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_duration_seconds">
-          <option value="15" ${pulseDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
-          <option value="30" ${pulseDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
-        </select>
-      </label>
-      <label>
-        Ort
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Dauer</span>
+        <div class="entry-duration-grid">
+          <label>
+            Atemfrequenz
+            <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="breath_duration_seconds">
+              <option value="15" ${breathDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
+              <option value="30" ${breathDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
+            </select>
+          </label>
+          <label>
+            Pulse
+            <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_duration_seconds">
+              <option value="15" ${pulseDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
+              <option value="30" ${pulseDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Ort</span>
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location_id">
           ${locationOptions}
         </select>
-      </label>
-      <label>
-        Kontext
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Kontext</span>
         <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context_ids" multiple>${contextOptions}</select>
-      </label>
-      <label class="entry-editor-wide">
-        Notizen
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Notizen</span>
         <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="notes">${escapeHtml(entry.notes || entry.comment || '')}</textarea>
-      </label>
+      </div>
       <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
     </div>
   `;
 }
 
-function toggleEntryEditor(id) {
-  if (state.editingEntryId !== null) {
-    clearTimeout(state.saveTimers.get(state.editingEntryId));
-    saveEntryEdit(state.editingEntryId).catch((error) => setMessage(error.message, true));
+function renderRecordEditor() {
+  const entry = state.entries.find((item) => item._id === state.editingEntryId);
+  els.recordsView.classList.toggle('is-editing-record', Boolean(entry));
+  els.recordEditorPage.hidden = !entry;
+  if (!entry) {
+    state.editingEntryId = null;
+    els.recordEditorPage.innerHTML = '';
+    return;
   }
-  state.editingEntryId = state.editingEntryId === id ? null : id;
+  const type = entryType(entry);
+  els.recordEditorPage.innerHTML = renderEntryEditor(entry, type);
+  els.recordEditorPage.querySelector('[data-record-back]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
+  els.recordEditorPage.querySelectorAll('[data-delete-entry]').forEach((button) => {
+    button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
+  });
+  els.recordEditorPage.querySelectorAll('[data-autosave-entry]').forEach((input) => {
+    const eventName = input.tagName === 'TEXTAREA' || input.type === 'number' || input.type === 'datetime-local' ? 'input' : 'change';
+    input.addEventListener(eventName, () => queueEntrySave(input.dataset.autosaveEntry));
+  });
+}
+
+function openEntryEditor(id) {
+  state.recordScrollY = window.scrollY;
+  state.editingEntryId = id;
   renderEntries();
+  window.scrollTo({ top: 0 });
+}
+
+async function closeEntryEditor() {
+  const id = state.editingEntryId;
+  if (id !== null) {
+    clearTimeout(state.saveTimers.get(id));
+    await saveEntryEdit(id);
+  }
+  state.editingEntryId = null;
+  await loadEntries();
+  window.scrollTo({ top: state.recordScrollY });
 }
 
 function queueEntrySave(id) {
@@ -841,7 +920,7 @@ function queueEntrySave(id) {
 
 async function saveEntryEdit(id) {
   const entry = state.entries.find((item) => item._id === id);
-  const editor = els.entriesList.querySelector(`[data-entry-editor="${cssEscape(id)}"]`);
+  const editor = document.querySelector(`[data-entry-editor="${cssEscape(id)}"]`);
   if (!entry || !editor) return;
 
   const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [
@@ -909,6 +988,7 @@ async function deleteEntry(id, revision) {
   if (!id || !revision) return;
   if (!window.confirm('Messung löschen?')) return;
   await api('object-delete', { method: 'POST', body: { type: 'vitals', id, base_revision: revision } });
+  if (state.editingEntryId === id) state.editingEntryId = null;
   await loadEntries();
 }
 
@@ -917,21 +997,22 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 }
 
+function formatDateWithRelative(value) {
+  const relative = relativeTime(value);
+  return `${escapeHtml(formatDate(value))}${relative ? ` <span class="date-separator">·</span> <span class="muted">${escapeHtml(relative)}</span>` : ''}`;
+}
+
 function relativeTime(value) {
   if (!value) return '';
   const date = new Date(value);
   const diff = Date.now() - date.getTime();
   if (Number.isNaN(diff)) return '';
   const abs = Math.abs(diff);
-  const units = [
-    [60 * 1000, 'gerade eben'],
-    [60 * 60 * 1000, `${Math.round(abs / 60000)} Min. her`],
-    [24 * 60 * 60 * 1000, `${Math.round(abs / 3600000)} Std. her`],
-    [7 * 24 * 60 * 60 * 1000, `${Math.round(abs / 86400000)} Tg. her`],
-  ];
-  const match = units.find(([limit]) => abs < limit);
-  if (match) return match[1];
-  return `${Math.round(abs / 604800000)} Wo. her`;
+  if (abs < 60 * 1000) return 'now';
+  if (abs < 60 * 60 * 1000) return `${Math.round(abs / 60000)}m`;
+  if (abs < 24 * 60 * 60 * 1000) return `${Math.round(abs / 3600000)}h`;
+  if (abs < 7 * 24 * 60 * 60 * 1000) return `${Math.round(abs / 86400000)}d`;
+  return `${Math.round(abs / 604800000)}w`;
 }
 
 function dateTimeLocalValue(value) {
@@ -1127,10 +1208,6 @@ els.recordDogFilter.addEventListener('change', () => {
 els.recordTypeFilter.addEventListener('change', () => {
   state.recordTypeFilter = els.recordTypeFilter.value;
   state.editingEntryId = null;
-  renderEntries();
-});
-els.recordSort.addEventListener('change', () => {
-  state.recordSort = els.recordSort.value;
   renderEntries();
 });
 renderMeasurementControls();
