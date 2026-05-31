@@ -1,6 +1,6 @@
 const sharedModes = [
   ['resting', 'Ruhend'],
-  ['active', 'Aktivität'],
+  ['active', 'Aktiv'],
   ['panting', 'Hechelnd'],
   ['sleeping', 'Schlafend'],
 ];

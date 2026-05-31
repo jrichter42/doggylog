@@ -6,6 +6,7 @@ const state = {
 };
 
 const els = {
+  connectionStatus: $('connectionStatus'),
   topTabs: $('topTabs'),
   page: $('accountPage'),
   message: $('accountMessage'),
@@ -58,10 +59,13 @@ async function refresh() {
     window.location.href = './';
     return;
   }
+  const user = state.status.auth.user;
+  els.connectionStatus.textContent = user.display_name || user.username;
+  els.connectionStatus.hidden = false;
   els.topTabs.hidden = false;
   els.page.hidden = false;
   await loadDogs();
-  els.adminPanel.hidden = !state.status.auth.user.permissions.includes('manage_users');
+  els.adminPanel.hidden = !user.permissions.includes('manage_users');
   if (!els.adminPanel.hidden) await loadUsers();
 }
 
@@ -150,12 +154,34 @@ function escapeHtml(value) {
   }[char]));
 }
 
+function renderSetupLink(element, url) {
+  element.hidden = false;
+  if (!url) {
+    element.textContent = 'Setup-Link erstellt.';
+    return;
+  }
+  element.innerHTML = `
+    <span>${escapeHtml(url)}</span>
+    <button class="icon-button setup-copy-button" type="button" title="Setup-Link kopieren" aria-label="Setup-Link kopieren">⧉</button>
+  `;
+  element.querySelector('button').addEventListener('click', () => copySetupLink(url, element));
+}
+
+async function copySetupLink(url, element) {
+  try {
+    await navigator.clipboard.writeText(url);
+    element.querySelector('button').textContent = '✓';
+  } catch (error) {
+    setMessage('Kopieren nicht möglich.', true);
+  }
+}
+
 els.selfSetupButton.addEventListener('click', async () => {
   els.selfSetupResult.hidden = false;
   els.selfSetupResult.textContent = 'Erstelle Link...';
   try {
     const result = await api('account-create-setup-token', { method: 'POST', body: {} });
-    els.selfSetupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
+    renderSetupLink(els.selfSetupResult, result.setup?.setup_url || '');
   } catch (error) {
     els.selfSetupResult.textContent = error.message;
   }
@@ -186,7 +212,7 @@ els.createUserForm.addEventListener('submit', async (event) => {
     },
   });
   els.setupResult.hidden = false;
-  els.setupResult.textContent = result.setup?.setup_url || 'Setup-Link erstellt.';
+  renderSetupLink(els.setupResult, result.setup?.setup_url || '');
   event.currentTarget.reset();
   await loadUsers();
 });

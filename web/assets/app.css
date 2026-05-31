@@ -598,11 +598,29 @@ textarea {
 }
 
 .setup-link {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   overflow-wrap: anywhere;
   border: 1px dashed var(--accent);
   border-radius: 8px;
   padding: 0.75rem;
   background: #123b3a;
+}
+
+.setup-link span {
+  flex: 1;
+  min-width: 0;
+}
+
+.setup-copy-button {
+  flex: 0 0 38px;
+  min-height: 38px;
+  width: 38px;
+  border-color: rgba(125, 211, 252, 0.55);
+  background: #121721;
+  color: var(--accent-2);
+  font-size: 1.2rem;
 }
 
 .delete-entry {

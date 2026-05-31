@@ -24,6 +24,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
         <div class="brand-title">
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
+        <p class="connection-status" id="connectionStatus" hidden></p>
       </div>
       <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
         <a class="top-tab" href="./#measure">Messung</a>
