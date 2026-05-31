@@ -25,6 +25,7 @@ const state = {
   contextDeleteCandidate: '',
   locationDeleteMode: false,
   locationDeleteCandidate: '',
+  emailLoginOffered: false,
   measuring: false,
   startedAt: 0,
   timer: null,
@@ -42,6 +43,8 @@ const $ = (id) => document.getElementById(id);
 
 const els = {
   connectionStatus: $('connectionStatus'),
+  topTabs: $('topTabs'),
+  configNotice: $('configNotice'),
   loginButton: $('loginButton'),
   authScreen: $('authScreen'),
   setupForm: $('setupForm'),
@@ -181,6 +184,7 @@ async function passkeyLogin() {
     body: { challenge_id: options.challenge_id, credential: serializeCredential(credential) },
   });
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
+  state.emailLoginOffered = false;
   await refresh();
 }
 
@@ -197,6 +201,7 @@ async function passkeySetup(event) {
   });
   window.history.replaceState({}, document.title, window.location.pathname);
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
+  state.emailLoginOffered = false;
   await refresh();
 }
 
@@ -204,6 +209,7 @@ async function verifyEmailLogin(token) {
   const result = await api('auth-email-login-verify', { method: 'POST', body: { token } });
   window.history.replaceState({}, document.title, window.location.pathname);
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
+  state.emailLoginOffered = false;
   await refresh();
 }
 
@@ -227,6 +233,9 @@ function renderShell() {
   const setup = params.get('setup');
 
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
+  els.connectionStatus.hidden = !user;
+  els.topTabs.hidden = !user;
+  if (els.configNotice) els.configNotice.hidden = !user;
   els.authScreen.hidden = Boolean(user);
   els.workspace.hidden = !user;
   els.accountLink.hidden = !user;
@@ -234,14 +243,18 @@ function renderShell() {
   els.setupForm.hidden = !setup || Boolean(user);
   els.loginPanel.hidden = Boolean(setup) && !user;
   els.setupInput.value = setup || '';
-  els.loginEmailForm.hidden = !state.status?.mail?.login_enabled;
+  const canUseEmailLogin = Boolean(state.status?.mail?.login_enabled);
+  const shouldOfferEmailLogin = state.emailLoginOffered || !passkeysAvailable();
+  els.loginEmailForm.hidden = !canUseEmailLogin || !shouldOfferEmailLogin || Boolean(user);
   els.passkeyLoginButton.disabled = !passkeysAvailable();
   els.setupForm.querySelector('button[type="submit"]').disabled = !passkeysAvailable();
 
   if (state.status.auth?.bootstrap_pending && !setup && !user) {
     setMessage('Initiales Setup offen. Lies web/bootstrap_setup.txt auf Server.', false);
   } else if (!user && !passkeysAvailable()) {
+    state.emailLoginOffered = true;
     setMessage('Passkeys hier nicht verfügbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
+    els.loginEmailForm.hidden = !canUseEmailLogin || Boolean(user);
   }
 
   renderView();
@@ -783,7 +796,11 @@ function cssEscape(value) {
   return String(value).replace(/["\\]/g, '\\$&');
 }
 
-els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => setMessage(error.message, true)));
+els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => {
+  state.emailLoginOffered = true;
+  renderShell();
+  setMessage(error.message, true);
+}));
 els.setupForm.addEventListener('submit', (event) => passkeySetup(event).catch((error) => setMessage(error.message, true)));
 els.loginButton.addEventListener('click', () => {
   els.authScreen.hidden = false;
@@ -795,8 +812,16 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   els.loginEmailState.hidden = false;
   els.loginEmailState.textContent = 'Sende...';
-  const result = await api('auth-email-login-request', { method: 'POST', body: { email: els.loginEmailInput.value } });
-  els.loginEmailState.textContent = result.message || 'Wenn Adresse bekannt ist, wurde Link gesendet.';
+  const submitButton = els.loginEmailForm.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const result = await api('auth-email-login-request', { method: 'POST', body: { email: els.loginEmailInput.value } });
+    els.loginEmailState.textContent = result.message || 'Wenn die Adresse bekannt ist, wurde ein Login-Link gesendet.';
+  } catch (_error) {
+    els.loginEmailState.textContent = 'Anfrage nicht abgeschlossen. Bitte später erneut versuchen.';
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
 });
 
 document.querySelectorAll('[data-measure-type]').forEach((button) => {

@@ -28,9 +28,9 @@ $configWarnings = array_map(
         <div class="brand-title">
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
-        <span class="connection-status" id="connectionStatus">Lädt...</span>
+        <span class="connection-status" id="connectionStatus" hidden>Lädt...</span>
       </div>
-      <nav class="top-tabs" aria-label="Hauptnavigation">
+      <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
         <button class="top-tab is-active" type="button" data-view-tab="measure">Messung</button>
         <button class="top-tab" type="button" data-view-tab="records">Verlauf</button>
         <a class="top-tab" id="accountLink" href="account.php" hidden>Konto</a>
@@ -39,7 +39,7 @@ $configWarnings = array_map(
     </header>
 
     <?php if ($configWarnings !== []): ?>
-      <aside class="notice" role="alert">
+      <aside class="notice" id="configNotice" role="alert" hidden>
         <strong>Config</strong>
         <?php foreach ($configWarnings as $warning): ?>
           <span><?= $warning ?></span>
@@ -51,9 +51,10 @@ $configWarnings = array_map(
       <section class="auth-card" id="authScreen" hidden>
         <div id="loginPanel">
           <h2>Einloggen</h2>
-          <p>Passkey nutzen. Optional E-Mail-Link, wenn konfiguriert.</p>
+          <p>Mit Passkey einloggen.</p>
           <button class="primary" id="passkeyLoginButton" type="button">Mit Passkey einloggen</button>
           <form id="loginEmailForm" hidden>
+            <p class="muted">Falls der Passkey nicht klappt, kannst du dir einen Login-Link schicken lassen.</p>
             <label>
               E-Mail
               <input id="loginEmailInput" name="email" type="email" autocomplete="email">

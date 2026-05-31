@@ -6,6 +6,7 @@ const state = {
 };
 
 const els = {
+  topTabs: $('topTabs'),
   page: $('accountPage'),
   message: $('accountMessage'),
   selfSetupButton: $('selfSetupButton'),
@@ -57,6 +58,7 @@ async function refresh() {
     window.location.href = './';
     return;
   }
+  els.topTabs.hidden = false;
   els.page.hidden = false;
   await loadDogs();
   els.adminPanel.hidden = !state.status.auth.user.permissions.includes('manage_users');

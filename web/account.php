@@ -25,7 +25,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
       </div>
-      <nav class="top-tabs" aria-label="Hauptnavigation">
+      <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
         <a class="top-tab" href="./#measure">Messung</a>
         <a class="top-tab" href="./#records">Verlauf</a>
         <a class="top-tab is-active" href="account.php">Konto</a>
