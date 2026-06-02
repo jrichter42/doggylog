@@ -421,7 +421,7 @@ function resetMeasurement() {
 function setResetConfirmation(active) {
   state.resetConfirmation = active;
   els.newMeasurementButton.classList.toggle('is-confirming', active);
-  els.newMeasurementButton.textContent = state.measuring ? 'Messung stoppen' : (active ? 'Wirklich neu?' : 'Neue Messung');
+  els.newMeasurementButton.textContent = state.measuring ? 'Messung abbrechen' : (active ? 'Wirklich neu?' : 'Neue Messung');
 }
 
 function resetMeasurementRun() {
@@ -1197,7 +1197,8 @@ async function handleLocationClick(location) {
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {
   if (state.measuring) {
-    stopMeasurement();
+    resetMeasurementRun();
+    renderMeasurementControls();
     return;
   }
   if (!state.resetConfirmation) {
