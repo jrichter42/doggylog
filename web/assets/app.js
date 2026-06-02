@@ -421,7 +421,7 @@ function resetMeasurement() {
 function setResetConfirmation(active) {
   state.resetConfirmation = active;
   els.newMeasurementButton.classList.toggle('is-confirming', active);
-  els.newMeasurementButton.textContent = active ? 'Wirklich neu?' : 'Neue Messung';
+  els.newMeasurementButton.textContent = state.measuring ? 'Messung stoppen' : (active ? 'Wirklich neu?' : 'Neue Messung');
 }
 
 function resetMeasurementRun() {
@@ -474,6 +474,8 @@ function startMeasurement() {
   state.startedAt = Date.now();
   state.taps = 1;
   els.saveButton.disabled = true;
+  els.newMeasurementButton.hidden = false;
+  setResetConfirmation(false);
   pulseFeedback();
   state.timer = setInterval(updateMeterView, 120);
   state.finishTimer = setTimeout(finishMeasurement, state.duration * 1000);
@@ -490,20 +492,28 @@ function registerTap() {
   updateMeterView();
 }
 
-function finishMeasurement() {
+function stopMeasurement() {
   if (!state.measuring) return;
+  const elapsed = (Date.now() - state.startedAt) / 1000;
+  finishMeasurement(Math.min(state.duration, Math.max(1, elapsed)));
+}
+
+function finishMeasurement(measuredDuration = state.duration) {
+  if (!state.measuring) return;
+  const effectiveDuration = Math.max(1, Math.round(measuredDuration));
   clearInterval(state.timer);
   clearTimeout(state.finishTimer);
   state.measuring = false;
   state.timer = null;
   state.finishTimer = null;
-  state.result = Math.round((state.taps / state.duration) * 60);
+  state.result = Math.round((state.taps / effectiveDuration) * 60);
   state.results[state.measureType] = state.result;
   state.resultTaps[state.measureType] = state.taps;
-  state.resultDurations[state.measureType] = state.duration;
+  state.resultDurations[state.measureType] = effectiveDuration;
   if (!els.measuredAtInput.value) els.measuredAtInput.value = new Date().toISOString();
   els.tapButton.disabled = true;
   els.newMeasurementButton.hidden = false;
+  setResetConfirmation(false);
   els.saveButton.disabled = false;
   renderMeasurementControls();
   updateMeterView();
@@ -1186,6 +1196,10 @@ async function handleLocationClick(location) {
 }
 els.tapButton.addEventListener('click', registerTap);
 els.newMeasurementButton.addEventListener('click', () => {
+  if (state.measuring) {
+    stopMeasurement();
+    return;
+  }
   if (!state.resetConfirmation) {
     setResetConfirmation(true);
     els.newMeasurementButton.focus();
