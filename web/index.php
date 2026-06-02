@@ -31,10 +31,10 @@ $configWarnings = array_map(
         <span class="connection-status" id="connectionStatus" hidden>Lädt...</span>
       </div>
       <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
-        <button class="top-tab is-active" type="button" data-view-tab="measure">Messung</button>
-        <button class="top-tab" type="button" data-view-tab="records">Verlauf</button>
-        <a class="top-tab" id="accountLink" href="account.php" hidden>Konto</a>
-        <button class="top-tab" id="loginButton" type="button" hidden>Login</button>
+        <button class="top-tab is-active" type="button" data-view-tab="measure" data-icon="activity">Messung</button>
+        <button class="top-tab" type="button" data-view-tab="records" data-icon="history">Verlauf</button>
+        <a class="top-tab" id="accountLink" href="account.php" data-icon="user" hidden>Konto</a>
+        <button class="top-tab" id="loginButton" type="button" data-icon="key" hidden>Login</button>
       </nav>
     </header>
 
@@ -52,14 +52,14 @@ $configWarnings = array_map(
         <div id="loginPanel">
           <h2>Einloggen</h2>
           <p>Mit Passkey einloggen.</p>
-          <button class="primary" id="passkeyLoginButton" type="button">Mit Passkey einloggen</button>
+          <button class="primary" id="passkeyLoginButton" type="button" data-icon="key">Mit Passkey einloggen</button>
           <form id="loginEmailForm" hidden>
             <p class="muted">Falls der Passkey nicht klappt, kannst du dir einen Login-Link schicken lassen.</p>
             <label>
               E-Mail
               <input id="loginEmailInput" name="email" type="email" autocomplete="email">
             </label>
-            <button type="submit">Login-Link senden</button>
+            <button type="submit" data-icon="mail">Login-Link senden</button>
             <p id="loginEmailState" class="muted" hidden></p>
           </form>
         </div>
@@ -68,7 +68,7 @@ $configWarnings = array_map(
           <h2>Passkey einrichten</h2>
           <p>Einmaliger Setup-Link.</p>
           <input id="setupInput" name="setup" type="hidden">
-          <button class="primary" type="submit">Passkey erstellen</button>
+          <button class="primary" type="submit" data-icon="key">Passkey erstellen</button>
         </form>
       </section>
 
@@ -91,20 +91,20 @@ $configWarnings = array_map(
           <div class="choice-block">
             <span class="control-title">Messung</span>
             <div class="big-switch" role="group" aria-label="Messart">
-              <button type="button" class="is-active" data-measure-type="breath">Atemfrequenz</button>
+              <button type="button" class="is-active" data-measure-type="breath" data-icon="wind">Atemfrequenz</button>
               <button class="swap-type-button" id="swapMeasurementTypesButton" type="button" aria-label="Atemfrequenz und Puls tauschen" title="Atemfrequenz und Puls tauschen">
                 <span aria-hidden="true">&#11013;</span>
                 <span aria-hidden="true">&#10145;</span>
               </button>
-              <button type="button" data-measure-type="pulse">Pulse</button>
+              <button type="button" data-measure-type="pulse" data-icon="heart-pulse">Pulse</button>
             </div>
           </div>
 
           <div class="choice-block">
             <span class="control-title">Dauer</span>
             <div class="segmented" role="group" aria-label="Messdauer">
-              <button type="button" data-duration="15" class="is-active">15 Sekunden</button>
-              <button type="button" data-duration="30">30 Sekunden</button>
+              <button type="button" data-duration="15" class="is-active" data-icon="clock">15 Sekunden</button>
+              <button type="button" data-duration="30" data-icon="clock">30 Sekunden</button>
             </div>
           </div>
 
@@ -135,8 +135,8 @@ $configWarnings = array_map(
               <div class="choice-head">
                 <span class="control-title">Ort</span>
                 <div class="pill-actions">
-                  <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen">+</button>
-                  <button class="icon-button compact" id="deleteLocationButton" type="button" aria-label="Ort loeschen" title="Ort loeschen">-</button>
+                  <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen" data-icon-only="plus"></button>
+                  <button class="icon-button compact" id="deleteLocationButton" type="button" aria-label="Ort loeschen" title="Ort loeschen" data-icon-only="trash"></button>
                 </div>
               </div>
               <div class="pill-grid" id="locationButtons" role="group" aria-label="Ort"></div>
@@ -145,8 +145,8 @@ $configWarnings = array_map(
               <div class="choice-head">
                 <span class="control-title">Kontext</span>
                 <div class="pill-actions">
-                  <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen">+</button>
-                  <button class="icon-button compact" id="deleteContextButton" type="button" aria-label="Kontext loeschen" title="Kontext loeschen">-</button>
+                  <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen" data-icon-only="plus"></button>
+                  <button class="icon-button compact" id="deleteContextButton" type="button" aria-label="Kontext loeschen" title="Kontext loeschen" data-icon-only="trash"></button>
                 </div>
               </div>
               <input id="contextInput" name="context" type="hidden">
@@ -156,7 +156,7 @@ $configWarnings = array_map(
               <span class="control-title">Notizen</span>
               <textarea id="notesInput" name="notes" rows="3"></textarea>
             </div>
-            <button class="primary" id="saveButton" type="submit" disabled>Messung speichern</button>
+            <button class="primary" id="saveButton" type="submit" disabled data-icon="save">Messung speichern</button>
             <p id="saveState" class="muted" hidden></p>
           </form>
         </section>
@@ -182,6 +182,7 @@ $configWarnings = array_map(
         </section>
       </section>
     </main>
+    <script src="assets/icons.js"></script>
     <script type="module" src="assets/app.js"></script>
   </body>
 </html>

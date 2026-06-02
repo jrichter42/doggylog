@@ -46,6 +46,7 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
+const { hydrateStaticIcons, labelWithIcon, setIconOnlyButton, setLabelWithIcon } = window.DoggyLogIcons;
 
 const els = {
   connectionStatus: $('connectionStatus'),
@@ -324,7 +325,7 @@ function renderMeasurementControls() {
   }
 
   els.modeButtons.innerHTML = modes[state.measureType].map(([value, label]) => (
-    `<button type="button" data-mode="${value}" class="${value === state.mode ? 'is-active' : ''}">${label}</button>`
+    `<button type="button" data-mode="${value}" class="has-ui-icon ${value === state.mode ? 'is-active' : ''}">${labelWithIcon(modeIcon(value), label)}</button>`
   )).join('');
 
   els.modeButtons.querySelectorAll('[data-mode]').forEach((button) => {
@@ -359,7 +360,11 @@ function renderContextOptions() {
     button.addEventListener('click', () => handleContextClick(button.dataset.context).catch((error) => setMessage(error.message, true)));
   });
   els.deleteContextButton.classList.toggle('is-active', state.contextDeleteMode);
-  els.deleteContextButton.textContent = state.contextDeleteMode ? 'OK' : '-';
+  setIconOnlyButton(
+    els.deleteContextButton,
+    state.contextDeleteMode ? 'check' : 'trash',
+    state.contextDeleteMode ? 'Löschmodus bestätigen' : 'Kontext löschen',
+  );
 }
 
 function selectedContexts() {
@@ -389,15 +394,21 @@ function renderLocationOptions() {
     button.addEventListener('click', () => handleLocationClick(button.dataset.location).catch((error) => setMessage(error.message, true)));
   });
   els.deleteLocationButton.classList.toggle('is-active', state.locationDeleteMode);
-  els.deleteLocationButton.textContent = state.locationDeleteMode ? 'OK' : '-';
+  setIconOnlyButton(
+    els.deleteLocationButton,
+    state.locationDeleteMode ? 'check' : 'trash',
+    state.locationDeleteMode ? 'Löschmodus bestätigen' : 'Ort löschen',
+  );
 }
 
 function pillButton({ value, label, active, deleteMode, deleteCandidate, attr }) {
   const classes = ['pill-button'];
+  const iconName = pillIcon(attr);
+  if (iconName) classes.push('has-ui-icon');
   if (active) classes.push('is-active');
   if (deleteMode) classes.push('is-delete-mode');
   if (deleteMode && deleteCandidate === value) classes.push('is-delete-candidate');
-  return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
+  return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${iconName ? labelWithIcon(iconName, label) : escapeHtml(label)}</button>`;
 }
 
 function resetMeasurement() {
@@ -423,7 +434,9 @@ function resetMeasurement() {
 function setResetConfirmation(active) {
   state.resetConfirmation = active;
   els.newMeasurementButton.classList.toggle('is-confirming', active);
-  els.newMeasurementButton.textContent = state.measuring ? 'Messung abbrechen' : (active ? 'Wirklich neu?' : 'Neue Messung');
+  const label = state.measuring ? 'Messung abbrechen' : (active ? 'Wirklich neu?' : 'Neue Messung');
+  const iconName = state.measuring ? 'x' : (active ? 'help-circle' : 'rotate-ccw');
+  setLabelWithIcon(els.newMeasurementButton, iconName, label);
 }
 
 function resetMeasurementRun() {
@@ -812,7 +825,7 @@ function renderEntryEditor(entry, type) {
 
   return `
     <div class="record-edit-form" data-entry-editor="${escapeHtml(entry._id)}">
-      <button class="secondary-action record-back-button" type="button" data-record-back>Zurück</button>
+      <button class="secondary-action record-back-button has-ui-icon" type="button" data-record-back>${labelWithIcon('arrow-left', 'Zurück')}</button>
       <div class="choice-block">
         <span class="control-title">Zeitpunkt</span>
         <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
@@ -882,7 +895,7 @@ function renderEntryEditor(entry, type) {
         <span class="control-title">Notizen</span>
         <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="notes">${escapeHtml(entry.notes || entry.comment || '')}</textarea>
       </div>
-      <button class="delete-entry" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">Löschen</button>
+      <button class="delete-entry has-ui-icon" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">${labelWithIcon('trash', 'Löschen')}</button>
     </div>
   `;
 }
@@ -1038,6 +1051,23 @@ function dateTimeLocalValue(value) {
 
 function modeLabel(type, value) {
   return Object.fromEntries(modes[type] || sharedModes)[value] || value || 'Ruhend';
+}
+
+function modeIcon(value) {
+  return {
+    active: 'activity',
+    panting: 'wind',
+    resting: 'clock',
+    sleeping: 'zzz',
+  }[value] || 'activity';
+}
+
+function pillIcon(attr) {
+  return {
+    'data-context': 'tag',
+    'data-dog': 'paw',
+    'data-location': 'map-pin',
+  }[attr] || '';
 }
 
 function locationLabel(value) {
@@ -1228,6 +1258,7 @@ els.recordTypeFilter.addEventListener('change', () => {
   state.editingEntryId = null;
   renderEntries();
 });
+hydrateStaticIcons();
 renderMeasurementControls();
 switchView(state.view, false);
 

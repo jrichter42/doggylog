@@ -27,9 +27,9 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
         <p class="connection-status" id="connectionStatus" hidden></p>
       </div>
       <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
-        <a class="top-tab" href="./#measure">Messung</a>
-        <a class="top-tab" href="./#records">Verlauf</a>
-        <a class="top-tab is-active" href="account.php">Konto</a>
+        <a class="top-tab" href="./#measure" data-icon="activity">Messung</a>
+        <a class="top-tab" href="./#records" data-icon="history">Verlauf</a>
+        <a class="top-tab is-active" href="account.php" data-icon="user">Konto</a>
       </nav>
     </header>
 
@@ -41,8 +41,8 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
           <div class="section-head">
             <h2>Zugang</h2>
             <div class="section-actions">
-              <button id="selfSetupButton" type="button">Setup-Link erstellen</button>
-              <button class="delete-entry" id="logoutButton" type="button">Logout</button>
+              <button id="selfSetupButton" type="button" data-icon="key">Setup-Link erstellen</button>
+              <button class="delete-entry" id="logoutButton" type="button" data-icon="logOut">Logout</button>
             </div>
           </div>
           <p class="muted">Einmaliger Link für weiteren Passkey dieses Benutzers.</p>
@@ -55,7 +55,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
           </div>
           <form class="inline-form" id="dogCreateForm">
             <input name="name" placeholder="Hundename" autocomplete="off" required>
-            <button type="submit">Hund anlegen</button>
+            <button type="submit" data-icon="plus">Hund anlegen</button>
           </form>
           <div class="entries" id="dogList"></div>
         </section>
@@ -71,7 +71,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
               <input name="manage_users" type="checkbox" value="1">
               Benutzerverwaltung
             </label>
-            <button type="submit">Setup-Link erstellen</button>
+            <button type="submit" data-icon="key">Setup-Link erstellen</button>
           </form>
           <p class="setup-link" id="setupResult" hidden></p>
           <div id="userList" class="user-list"></div>
@@ -79,6 +79,7 @@ $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
       </section>
     </main>
 
+    <script src="assets/icons.js"></script>
     <script type="module" src="assets/account.js"></script>
   </body>
 </html>

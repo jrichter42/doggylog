@@ -61,6 +61,24 @@ button:active {
   transform: scale(0.985);
 }
 
+.has-ui-icon {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+  justify-content: center;
+}
+
+.ui-icon {
+  flex: 0 0 auto;
+  width: 1.05em;
+  height: 1.05em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .primary {
   border-color: var(--accent);
   background: var(--accent);
@@ -271,13 +289,10 @@ main {
 }
 
 .top-tab {
-  align-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-soft);
   color: var(--ink);
-  display: inline-flex;
-  justify-content: center;
   min-height: 40px;
   padding: 0.5rem 0.65rem;
   text-align: center;
@@ -321,6 +336,10 @@ main {
   padding: 0.45rem 0.75rem;
 }
 
+.pill-button.has-ui-icon {
+  gap: 0.35rem;
+}
+
 #dogButtons .pill-button,
 #locationButtons .pill-button {
   min-height: 48px;
@@ -341,6 +360,10 @@ main {
 .big-switch button:not(.swap-type-button) {
   position: relative;
   padding-right: 2.9rem;
+}
+
+.big-switch button:not(.swap-type-button).has-ui-icon {
+  padding-left: 0.8rem;
 }
 
 .swap-type-button {
@@ -558,9 +581,19 @@ main {
   display: grid;
   place-items: center;
   padding: 0;
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.icon-button.has-ui-icon {
+  display: inline-grid;
+  gap: 0;
+}
+
+.icon-button .ui-icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 label {

@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const { hydrateStaticIcons, labelWithIcon, setIconOnlyButton } = window.DoggyLogIcons;
 
 const state = {
   status: null,
@@ -92,8 +93,8 @@ function renderDogs() {
         <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
       </label>
       <div class="entry-actions">
-        <button class="primary" type="submit">Speichern</button>
-        <button class="delete-entry" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">Löschen</button>
+        <button class="primary has-ui-icon" type="submit">${labelWithIcon('save', 'Speichern')}</button>
+        <button class="delete-entry has-ui-icon" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">${labelWithIcon('trash', 'Löschen')}</button>
       </div>
     </form>
   `).join('');
@@ -162,15 +163,17 @@ function renderSetupLink(element, url) {
   }
   element.innerHTML = `
     <span>${escapeHtml(url)}</span>
-    <button class="icon-button setup-copy-button" type="button" title="Setup-Link kopieren" aria-label="Setup-Link kopieren">⧉</button>
+    <button class="icon-button setup-copy-button" type="button" title="Setup-Link kopieren" aria-label="Setup-Link kopieren"></button>
   `;
-  element.querySelector('button').addEventListener('click', () => copySetupLink(url, element));
+  const button = element.querySelector('button');
+  setIconOnlyButton(button, 'copy', 'Setup-Link kopieren');
+  button.addEventListener('click', () => copySetupLink(url, element));
 }
 
 async function copySetupLink(url, element) {
   try {
     await navigator.clipboard.writeText(url);
-    element.querySelector('button').textContent = '✓';
+    setIconOnlyButton(element.querySelector('button'), 'check', 'Kopiert');
   } catch (error) {
     setMessage('Kopieren nicht möglich.', true);
   }
@@ -217,4 +220,5 @@ els.createUserForm.addEventListener('submit', async (event) => {
   await loadUsers();
 });
 
+hydrateStaticIcons();
 refresh().catch((error) => setMessage(error.message, true));
