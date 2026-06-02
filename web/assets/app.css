@@ -181,6 +181,22 @@ main {
   gap: 1rem;
 }
 
+.measurement-progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.16);
+}
+
+.measurement-progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  box-shadow: 0 0 14px rgba(45, 212, 191, 0.48);
+  transition: width 120ms linear;
+}
+
 .dog-row label,
 .dog-row .choice-block {
   max-width: 100%;

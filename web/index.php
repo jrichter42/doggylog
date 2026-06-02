@@ -109,6 +109,9 @@ $configWarnings = array_map(
           </div>
 
           <div class="meter-stage" id="meterStage">
+            <div class="measurement-progress" id="measurementProgress" aria-hidden="true">
+              <div class="measurement-progress-fill" id="measurementProgressFill"></div>
+            </div>
             <div class="meter-meta">
               <span id="meterStatus">Bereit</span>
               <span id="meterCount">0 Taps</span>

@@ -64,6 +64,8 @@ const els = {
   workspace: $('workspace'),
   accountLink: $('accountLink'),
   measurementView: $('measurementView'),
+  measurementProgress: $('measurementProgress'),
+  measurementProgressFill: $('measurementProgressFill'),
   recordsView: $('recordsView'),
   swapMeasurementTypesButton: $('swapMeasurementTypesButton'),
   dogSelectLabel: $('dogSelectLabel'),
@@ -537,9 +539,11 @@ function updateMeterView() {
     : (state.taps === 1 ? 'Puls' : 'Pulse');
   const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Pulse/min';
   const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
+  const progress = state.duration > 0 ? Math.min(100, Math.max(0, (elapsed / state.duration) * 100)) : 0;
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
 
+  els.measurementProgressFill.style.width = `${state.measuring ? progress : (state.result === null ? 0 : 100)}%`;
   els.meterStatus.textContent = state.measuring ? `${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
   els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
