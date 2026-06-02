@@ -473,6 +473,16 @@ main {
   gap: 0.55rem;
 }
 
+.record-filter-head {
+  margin-bottom: 0.65rem;
+}
+
+.record-export-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.55rem;
+}
+
 .record-tools {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -480,9 +490,18 @@ main {
   flex: 1 1 100%;
 }
 
-.record-tools select {
+.record-tools select,
+.record-tools button {
   min-height: 40px;
   padding: 0.45rem 0.55rem;
+}
+
+.record-export-button {
+  border-color: rgba(45, 212, 191, 0.55);
+  color: var(--accent);
+  font-weight: 900;
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
 }
 
 .single-dog-name {

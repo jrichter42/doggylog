@@ -5,6 +5,8 @@ const iconPaths = {
   check: '<path d="m20 6-11 11-5-5"></path>',
   clock: '<circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path>',
   copy: '<rect width="14" height="14" x="8" y="8" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path>',
+  'file-text': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path>',
   'help-circle': '<circle cx="12" cy="12" r="10"></circle><path d="M9.1 9a3 3 0 1 1 5.8 1c-.5 1-1.7 1.5-2.4 2.2-.4.4-.5.8-.5 1.3"></path><path d="M12 17h.01"></path>',
   'heart-pulse': '<path d="M19 14c1.5-1.4 3-3.2 3-5.4A5.4 5.4 0 0 0 12 5a5.4 5.4 0 0 0-10 3.6c0 5.5 10 11.4 10 11.4s2.1-1.2 4.3-3"></path><path d="M3.2 13h3.1l2-3 3.8 7 2-4h6.7"></path>',
   history: '<path d="M3 3v6h6"></path><path d="M3.1 13a9 9 0 1 0 2.5-7.4L3 9"></path><path d="M12 7v5l3 2"></path>',

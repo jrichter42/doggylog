@@ -165,8 +165,10 @@ $configWarnings = array_map(
         </section>
 
         <section class="history" id="recordsView" hidden>
-          <div class="section-head">
-            <h2>Verlauf</h2>
+          <div class="record-export-row">
+            <button class="record-export-button" id="recordExportButton" type="button" data-icon="download">CSV exportieren</button>
+          </div>
+          <div class="section-head record-filter-head">
             <div class="record-tools">
               <select id="recordDogFilter" aria-label="Hund filtern" hidden>
                 <option value="">Alle Hunde</option>

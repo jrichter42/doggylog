@@ -97,6 +97,7 @@ const els = {
   recordDogFilter: $('recordDogFilter'),
   recordSingleDogName: $('recordSingleDogName'),
   recordTypeFilter: $('recordTypeFilter'),
+  recordExportButton: $('recordExportButton'),
   entriesList: $('entriesList'),
   recordEditorPage: $('recordEditorPage'),
   viewTabs: document.querySelectorAll('[data-view-tab]'),
@@ -712,10 +713,10 @@ function compareRecordValues(a, b) {
   return String(a).localeCompare(String(b), 'de', { numeric: true, sensitivity: 'base' });
 }
 
-function sortHeader(column, label) {
+function sortHeader(column, label, iconName) {
   const active = state.recordSortColumn === column;
   const marker = active ? (state.recordSortDirection === 'asc' ? '↑' : '↓') : '';
-  return `<button class="record-sort-button ${active ? 'is-active-sort' : ''}" type="button" data-record-sort="${column}"><span>${escapeHtml(label)}</span>${marker ? `<span class="sort-arrow" aria-hidden="true">${marker}</span>` : ''}</button>`;
+  return `<button class="record-sort-button ${active ? 'is-active-sort' : ''}" type="button" data-record-sort="${column}">${labelWithIcon(iconName, label)}${marker ? `<span class="sort-arrow" aria-hidden="true">${marker}</span>` : ''}</button>`;
 }
 
 function sortRecords(column) {
@@ -728,11 +729,164 @@ function sortRecords(column) {
   renderEntries();
 }
 
+function measurementTypeLabel(value) {
+  return {
+    breath: 'Atemfrequenz',
+    pulse: 'Pulse',
+    both: 'Beides',
+  }[value] || value || 'Atemfrequenz';
+}
+
+function entryDurationValue(entry, durationType) {
+  const typed = durationType === 'pulse' ? entry.pulse_duration_seconds : entry.breath_duration_seconds;
+  if (typed !== null && typed !== undefined && typed !== '') return typed;
+  const type = entryType(entry);
+  if (type === durationType || type === 'both') return entry.duration_seconds ?? '';
+  return '';
+}
+
+function csvCell(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function joinCsvList(values) {
+  return values.filter((value) => value !== null && value !== undefined && value !== '').join('; ');
+}
+
+function filenamePart(value) {
+  const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_.@-]+/g, '-').replace(/^-+|-+$/g, '');
+  return cleaned || 'user';
+}
+
+function timestampForFilename(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join('-') + '_' + [
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join('-');
+}
+
+async function exportEntriesCsv() {
+  const [account, dogsResult, locationsResult, contextsResult, entriesResult] = await Promise.all([
+    api('account').catch(() => ({ account: { user: state.status?.auth?.user || {} } })),
+    api('objects', { query: { type: 'dogs' } }),
+    api('objects', { query: { type: 'locations' } }),
+    api('objects', { query: { type: 'contexts' } }),
+    api('objects', { query: { type: 'vitals' } }),
+  ]);
+  state.dogs = dogsResult.objects || [];
+  state.locationPresets = locationsResult.objects || [];
+  state.contextPresets = contextsResult.objects || [];
+  state.entries = entriesResult.objects || [];
+  const user = account.account?.user || state.status?.auth?.user || {};
+  const headers = [
+    'datentyp',
+    'id',
+    'revision',
+    'erstellt',
+    'geaendert',
+    'geaendert_von',
+    'hund_name',
+    'hund_notizen',
+    'ort_name',
+    'kontext_name',
+    'messung_hund_id',
+    'messung_hund_name',
+    'messung_ort_id',
+    'messung_ort_name',
+    'messung_kontext_ids',
+    'messung_kontext_namen',
+    'zeitpunkt',
+    'zeitpunkt_anzeige',
+    'messart',
+    'messart_anzeige',
+    'modus',
+    'modus_anzeige',
+    'dauer_sekunden',
+    'atem_dauer_sekunden',
+    'puls_dauer_sekunden',
+    'atemfrequenz_pro_minute',
+    'puls_pro_minute',
+    'notizen',
+  ];
+  const row = (values) => headers.map((header) => values[header] ?? '');
+  const meta = (object) => ({
+    id: object._id || '',
+    revision: object._revision ?? '',
+    erstellt: object._created || '',
+    geaendert: object._modified || '',
+    geaendert_von: object._modifiedBy || '',
+  });
+  const vitalsRows = state.entries.map((entry) => {
+    const type = entryType(entry);
+    const measuredAt = entry.measured_at || entry._created || '';
+    const contextIds = Array.isArray(entry.context_ids) ? entry.context_ids : [];
+    return row({
+      datentyp: 'vital',
+      ...meta(entry),
+      messung_hund_id: entry.dog_id || '',
+      messung_hund_name: dogLabel(entry.dog_id),
+      messung_ort_id: entry.location_id || '',
+      messung_ort_name: locationLabel(entry.location_id),
+      messung_kontext_ids: joinCsvList(contextIds),
+      messung_kontext_namen: contextSummary(entry),
+      zeitpunkt: measuredAt,
+      zeitpunkt_anzeige: measuredAt ? formatDate(measuredAt) : '',
+      messart: type,
+      messart_anzeige: measurementTypeLabel(type),
+      modus: entry.mode || '',
+      modus_anzeige: modeLabel(type, entry.mode),
+      dauer_sekunden: entry.duration_seconds ?? '',
+      atem_dauer_sekunden: entryDurationValue(entry, 'breath'),
+      puls_dauer_sekunden: entryDurationValue(entry, 'pulse'),
+      atemfrequenz_pro_minute: entry.breaths_per_minute ?? '',
+      puls_pro_minute: entry.pulse_per_minute ?? '',
+      notizen: entry.notes || entry.comment || '',
+    });
+  });
+  const rows = [
+    ...state.dogs.map((dog) => row({
+      datentyp: 'dog',
+      ...meta(dog),
+      hund_name: dog.name || '',
+      hund_notizen: dog.notes || '',
+    })),
+    ...state.locationPresets.map((location) => row({
+      datentyp: 'location',
+      ...meta(location),
+      ort_name: location.name || '',
+    })),
+    ...state.contextPresets.map((context) => row({
+      datentyp: 'context',
+      ...meta(context),
+      kontext_name: context.name || '',
+    })),
+    ...vitalsRows,
+  ];
+  const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `doggylog-verlauf-${filenamePart(user.username)}-${timestampForFilename()}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function renderEntries() {
   renderRecordFilters();
   renderRecordEditor();
   els.entriesList.hidden = !els.recordEditorPage.hidden;
   const entries = visibleEntries();
+  els.recordExportButton.disabled = state.dogs.length === 0 && state.entries.length === 0;
   if (state.entries.length === 0) {
     els.entriesList.innerHTML = '<p class="muted">Noch keine Messungen.</p>';
     return;
@@ -768,14 +922,14 @@ function renderEntries() {
   els.entriesList.innerHTML = `
     <div class="records-table">
       <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}">
-        ${hasDogColumn ? sortHeader('dog', 'Hund') : ''}
-        ${sortHeader('time', 'Zeit')}
-        ${sortHeader('breath', 'Atemfrequenz')}
-        ${sortHeader('pulse', 'Pulse')}
-        ${sortHeader('mode', 'Modus')}
-        ${sortHeader('location', 'Ort')}
-        ${sortHeader('context', 'Kontext')}
-        ${sortHeader('notes', 'Notizen')}
+        ${hasDogColumn ? sortHeader('dog', 'Hund', 'paw') : ''}
+        ${sortHeader('time', 'Zeit', 'clock')}
+        ${sortHeader('breath', 'Atemfrequenz', 'wind')}
+        ${sortHeader('pulse', 'Puls', 'heart-pulse')}
+        ${sortHeader('mode', 'Modus', 'activity')}
+        ${sortHeader('location', 'Ort', 'map-pin')}
+        ${sortHeader('context', 'Kontext', 'tag')}
+        ${sortHeader('notes', 'Notizen', 'file-text')}
       </div>
       ${rows}
     </div>
@@ -1257,6 +1411,14 @@ els.recordTypeFilter.addEventListener('change', () => {
   state.recordTypeFilter = els.recordTypeFilter.value;
   state.editingEntryId = null;
   renderEntries();
+});
+els.recordExportButton.addEventListener('click', () => {
+  els.recordExportButton.disabled = true;
+  exportEntriesCsv()
+    .catch((error) => setMessage(error.message, true))
+    .finally(() => {
+      els.recordExportButton.disabled = state.dogs.length === 0 && state.entries.length === 0;
+    });
 });
 hydrateStaticIcons();
 renderMeasurementControls();
