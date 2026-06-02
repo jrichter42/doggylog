@@ -19,13 +19,16 @@ $configWarnings = array_map(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#121721">
     <title><?= $appName ?></title>
+    <link rel="icon" href="assets/logo.png" type="image/png">
     <link rel="stylesheet" href="assets/app.css">
   </head>
   <body>
     <header class="topbar">
       <div class="brand-line">
         <div class="brand-title">
+          <img class="brand-logo" src="assets/logo.png" width="40" height="40" alt="" aria-hidden="true">
           <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
         </div>
         <span class="connection-status" id="connectionStatus" hidden>Lädt...</span>
