@@ -10,6 +10,8 @@ const modes = {
   pulse: sharedModes,
 };
 
+const hashView = window.location.hash.slice(1);
+
 const state = {
   status: null,
   entries: [],
@@ -17,7 +19,7 @@ const state = {
   measureType: 'breath',
   mode: 'resting',
   duration: 15,
-  view: window.location.hash === '#records' ? 'records' : 'measure',
+  view: ['records', 'account'].includes(hashView) ? hashView : 'measure',
   location: '',
   contextPresets: [],
   locationPresets: [],
@@ -63,8 +65,9 @@ const els = {
   loginEmailState: $('loginEmailState'),
   authMessage: $('authMessage'),
   workspace: $('workspace'),
-  accountLink: $('accountLink'),
+  page: document.querySelector('main'),
   measurementView: $('measurementView'),
+  accountView: $('accountView'),
   measurementProgress: $('measurementProgress'),
   measurementProgressFill: $('measurementProgressFill'),
   recordsView: $('recordsView'),
@@ -100,6 +103,15 @@ const els = {
   recordExportButton: $('recordExportButton'),
   entriesList: $('entriesList'),
   recordEditorPage: $('recordEditorPage'),
+  selfSetupButton: $('selfSetupButton'),
+  selfSetupResult: $('selfSetupResult'),
+  logoutButton: $('logoutButton'),
+  dogCreateForm: $('dogCreateForm'),
+  dogList: $('dogList'),
+  adminPanel: $('adminPanel'),
+  createUserForm: $('createUserForm'),
+  setupResult: $('setupResult'),
+  userList: $('userList'),
   viewTabs: document.querySelectorAll('[data-view-tab]'),
 };
 
@@ -240,6 +252,7 @@ async function refresh() {
     await loadTaxonomy();
     renderMeasurementControls();
     renderEntries();
+    await loadAccountView();
     renderView();
   }
 }
@@ -255,7 +268,6 @@ function renderShell() {
   if (els.configNotice) els.configNotice.hidden = !user;
   els.authScreen.hidden = Boolean(user);
   els.workspace.hidden = !user;
-  els.accountLink.hidden = !user;
   els.loginButton.hidden = Boolean(user);
   els.setupForm.hidden = !setup || Boolean(user);
   els.loginPanel.hidden = Boolean(setup) && !user;
@@ -293,17 +305,19 @@ function offerEmailLogin(message) {
 }
 
 function switchView(view, updateHash = true) {
-  state.view = view === 'records' ? 'records' : 'measure';
+  state.view = ['records', 'account'].includes(view) ? view : 'measure';
   renderView();
   if (updateHash) {
-    window.history.replaceState({}, document.title, state.view === 'records' ? '#records' : '#measure');
+    window.history.replaceState({}, document.title, `#${state.view}`);
   }
 }
 
 function renderView() {
   const records = state.view === 'records';
-  els.measurementView.hidden = records;
+  const account = state.view === 'account';
+  els.measurementView.hidden = records || account;
   els.recordsView.hidden = !records;
+  els.accountView.hidden = !account;
   els.viewTabs.forEach((tab) => {
     tab.classList.toggle('is-active', tab.dataset.viewTab === state.view);
   });
@@ -601,6 +615,7 @@ async function loadDogs() {
     state.dogs = [created.object];
   }
   renderDogSelect();
+  renderAccountDogs();
 }
 
 async function loadTaxonomy() {
@@ -620,6 +635,91 @@ async function loadTaxonomy() {
     state.location = state.locationPresets[0]?._id || '';
   }
   setSelectedContexts(selectedContexts().filter((id) => state.contextPresets.some((context) => context._id === id)));
+}
+
+async function loadAccountView() {
+  renderAccountView();
+  if (!els.adminPanel.hidden) await loadUsers();
+}
+
+function renderAccountView() {
+  const user = state.status?.auth?.user;
+  els.adminPanel.hidden = !user?.permissions?.includes('manage_users');
+  renderAccountDogs();
+}
+
+function renderAccountDogs() {
+  if (!els.dogList) return;
+  if (state.dogs.length === 0) {
+    els.dogList.innerHTML = '<p class="muted">Noch kein Hund.</p>';
+    return;
+  }
+
+  els.dogList.innerHTML = state.dogs.map((dog) => `
+    <form class="entry dog-edit" data-dog-id="${escapeHtml(dog._id)}" data-revision="${dog._revision}">
+      <label>
+        Name
+        <input name="name" value="${escapeHtml(dog.name || 'Mein Hund')}" required>
+      </label>
+      <label>
+        Notizen
+        <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
+      </label>
+      <div class="entry-actions">
+        <button class="primary has-ui-icon" type="submit">${labelWithIcon('save', 'Speichern')}</button>
+        <button class="delete-entry has-ui-icon" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">${labelWithIcon('trash', 'Löschen')}</button>
+      </div>
+    </form>
+  `).join('');
+
+  els.dogList.querySelectorAll('.dog-edit').forEach((form) => {
+    form.addEventListener('submit', (event) => saveAccountDog(event).catch((error) => setMessage(error.message, true)));
+  });
+  els.dogList.querySelectorAll('[data-delete-dog]').forEach((button) => {
+    button.addEventListener('click', () => deleteAccountDog(button.dataset.deleteDog, Number(button.dataset.revision)).catch((error) => setMessage(error.message, true)));
+  });
+}
+
+async function saveAccountDog(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  await api('object-update', {
+    method: 'POST',
+    body: {
+      type: 'dogs',
+      id: form.dataset.dogId,
+      base_revision: Number(form.dataset.revision),
+      object: {
+        name: data.get('name'),
+        notes: data.get('notes'),
+      },
+    },
+  });
+  setMessage('Hund gespeichert.');
+  await loadDogs();
+  renderMeasurementControls();
+  renderEntries();
+}
+
+async function deleteAccountDog(id, revision) {
+  if (!id || !revision) return;
+  if (!window.confirm('Hund löschen? Bestehende Messungen bleiben im Verlauf mit gespeichertem Namen.')) return;
+  await api('object-delete', { method: 'POST', body: { type: 'dogs', id, base_revision: revision } });
+  setMessage('Hund gelöscht.');
+  await loadDogs();
+  renderMeasurementControls();
+  renderEntries();
+}
+
+async function loadUsers() {
+  const result = await api('admin-users');
+  els.userList.innerHTML = (result.users || []).map((user) => `
+    <div class="user-row">
+      <strong>${escapeHtml(user.display_name || user.username)}</strong>
+      <span class="muted">${escapeHtml(user.username)} - ${user.enabled ? 'aktiv' : 'deaktiviert'}${user.permissions.includes('manage_users') ? ' - Benutzerverwaltung' : ''}</span>
+    </div>
+  `).join('');
 }
 
 function renderDogSelect() {
@@ -1076,10 +1176,10 @@ function renderRecordEditor() {
 }
 
 function openEntryEditor(id) {
-  state.recordScrollY = window.scrollY;
+  state.recordScrollY = pageScrollTop();
   state.editingEntryId = id;
   renderEntries();
-  window.scrollTo({ top: 0 });
+  scrollPageTo(0);
 }
 
 async function closeEntryEditor() {
@@ -1090,7 +1190,7 @@ async function closeEntryEditor() {
   }
   state.editingEntryId = null;
   await loadEntries();
-  window.scrollTo({ top: state.recordScrollY });
+  scrollPageTo(state.recordScrollY);
 }
 
 function queueEntrySave(id) {
@@ -1252,6 +1352,42 @@ function cssEscape(value) {
   return String(value).replace(/["\\]/g, '\\$&');
 }
 
+function pageScrollTop() {
+  return els.page ? els.page.scrollTop : window.scrollY;
+}
+
+function scrollPageTo(top) {
+  if (els.page) {
+    els.page.scrollTo({ top });
+    return;
+  }
+  window.scrollTo({ top });
+}
+
+function renderSetupLink(element, url) {
+  element.hidden = false;
+  if (!url) {
+    element.textContent = 'Setup-Link erstellt.';
+    return;
+  }
+  element.innerHTML = `
+    <span>${escapeHtml(url)}</span>
+    <button class="icon-button setup-copy-button" type="button" title="Setup-Link kopieren" aria-label="Setup-Link kopieren"></button>
+  `;
+  const button = element.querySelector('button');
+  setIconOnlyButton(button, 'copy', 'Setup-Link kopieren');
+  button.addEventListener('click', () => copySetupLink(url, element));
+}
+
+async function copySetupLink(url, element) {
+  try {
+    await navigator.clipboard.writeText(url);
+    setIconOnlyButton(element.querySelector('button'), 'check', 'Kopiert');
+  } catch (error) {
+    setMessage('Kopieren nicht möglich.', true);
+  }
+}
+
 els.passkeyLoginButton.addEventListener('click', () => passkeyLogin().catch((error) => {
   offerEmailLogin(error.message || 'Passkey fehlgeschlagen. Du kannst einen Login-Link anfordern.');
 }));
@@ -1263,6 +1399,7 @@ els.viewTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
     switchView(tab.dataset.viewTab);
     if (tab.dataset.viewTab === 'records') loadEntries().catch((error) => setMessage(error.message, true));
+    if (tab.dataset.viewTab === 'account') loadAccountView().catch((error) => setMessage(error.message, true));
   });
 });
 els.loginEmailForm.addEventListener('submit', async (event) => {
@@ -1419,6 +1556,45 @@ els.recordExportButton.addEventListener('click', () => {
     .finally(() => {
       els.recordExportButton.disabled = state.dogs.length === 0 && state.entries.length === 0;
     });
+});
+els.selfSetupButton.addEventListener('click', async () => {
+  els.selfSetupResult.hidden = false;
+  els.selfSetupResult.textContent = 'Erstelle Link...';
+  try {
+    const result = await api('account-create-setup-token', { method: 'POST', body: {} });
+    renderSetupLink(els.selfSetupResult, result.setup?.setup_url || '');
+  } catch (error) {
+    els.selfSetupResult.textContent = error.message;
+  }
+});
+els.logoutButton.addEventListener('click', async () => {
+  await api('auth-logout', { method: 'POST', body: {} });
+  window.location.href = './';
+});
+els.dogCreateForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  await api('object-create', { method: 'POST', body: { type: 'dogs', object: { name: form.get('name') } } });
+  event.currentTarget.reset();
+  await loadDogs();
+  renderMeasurementControls();
+  renderEntries();
+});
+els.createUserForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const result = await api('admin-create-user', {
+    method: 'POST',
+    body: {
+      username: form.get('username'),
+      display_name: form.get('display_name'),
+      permissions: form.get('manage_users') === '1' ? ['manage_users'] : [],
+    },
+  });
+  els.setupResult.hidden = false;
+  renderSetupLink(els.setupResult, result.setup?.setup_url || '');
+  event.currentTarget.reset();
+  await loadUsers();
 });
 hydrateStaticIcons();
 renderMeasurementControls();

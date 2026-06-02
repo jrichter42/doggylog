@@ -28,15 +28,18 @@ $configWarnings = array_map(
     <header class="topbar">
       <div class="brand-line">
         <div class="brand-title">
-          <img class="brand-logo" src="assets/logo.png" width="40" height="40" alt="" aria-hidden="true">
-          <h1><?= $appName ?> <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a></h1>
+          <a class="brand-home-link" href="./" aria-label="<?= $appName ?> Startseite">
+            <img class="brand-logo" src="assets/logo.png" width="40" height="40" alt="" aria-hidden="true">
+            <h1><?= $appName ?></h1>
+          </a>
+          <a class="version-link" href="https://github.doggylog.kimvosen.de" target="_blank" rel="noopener noreferrer">v<?= $version ?></a>
         </div>
         <span class="connection-status" id="connectionStatus" hidden>Lädt...</span>
       </div>
       <nav class="top-tabs" id="topTabs" aria-label="Hauptnavigation" hidden>
         <button class="top-tab is-active" type="button" data-view-tab="measure" data-icon="activity">Messung</button>
         <button class="top-tab" type="button" data-view-tab="records" data-icon="history">Verlauf</button>
-        <a class="top-tab" id="accountLink" href="account.php" data-icon="user" hidden>Konto</a>
+        <button class="top-tab" type="button" data-view-tab="account" data-icon="user">Konto</button>
         <button class="top-tab" id="loginButton" type="button" data-icon="key" hidden>Login</button>
       </nav>
     </header>
@@ -184,6 +187,48 @@ $configWarnings = array_map(
           </div>
           <div id="entriesList" class="entries"></div>
           <section class="record-editor-page" id="recordEditorPage" hidden></section>
+        </section>
+
+        <section class="account-card" id="accountView" hidden>
+          <section class="access-card">
+            <div class="section-head">
+              <h2>Zugang</h2>
+              <div class="section-actions">
+                <button id="selfSetupButton" type="button" data-icon="key">Setup-Link erstellen</button>
+                <button class="delete-entry" id="logoutButton" type="button" data-icon="logOut">Logout</button>
+              </div>
+            </div>
+            <p class="muted">Einmaliger Link für weiteren Passkey dieses Benutzers.</p>
+            <p class="setup-link" id="selfSetupResult" hidden></p>
+          </section>
+
+          <section class="access-card">
+            <div class="section-head">
+              <h2>Hunde</h2>
+            </div>
+            <form class="inline-form" id="dogCreateForm">
+              <input name="name" placeholder="Hundename" autocomplete="off" required>
+              <button type="submit" data-icon="plus">Hund anlegen</button>
+            </form>
+            <div class="entries" id="dogList"></div>
+          </section>
+
+          <section class="admin" id="adminPanel" hidden>
+            <div class="section-head">
+              <h2>Benutzer</h2>
+            </div>
+            <form id="createUserForm" class="inline-form user-create-form">
+              <input name="username" placeholder="Benutzername" autocomplete="off" required>
+              <input name="display_name" placeholder="Anzeigename" autocomplete="name">
+              <label class="checkbox-line">
+                <input name="manage_users" type="checkbox" value="1">
+                Benutzerverwaltung
+              </label>
+              <button type="submit" data-icon="key">Setup-Link erstellen</button>
+            </form>
+            <p class="setup-link" id="setupResult" hidden></p>
+            <div id="userList" class="user-list"></div>
+          </section>
         </section>
       </section>
     </main>
