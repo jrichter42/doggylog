@@ -996,3 +996,13 @@ footer {
   display: grid;
   gap: 0.85rem;
 }
+
+.account-card .access-card,
+.account-card .admin {
+  display: grid;
+  gap: 1rem;
+}
+
+.account-card .section-head {
+  margin-bottom: 0;
+}
