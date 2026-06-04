@@ -2114,7 +2114,15 @@ function renderSetupLink(element, url) {
 async function copySetupLink(url, element) {
   try {
     await navigator.clipboard.writeText(url);
-    setIconOnlyButton(element.querySelector('button'), 'check', 'Kopiert');
+    const button = element.querySelector('button');
+    if (button) {
+      setIconOnlyButton(button, 'check', 'Kopiert');
+      window.setTimeout(() => {
+        if (!button.isConnected) return;
+        setIconOnlyButton(button, 'copy', 'Setup-Link kopieren');
+      }, 900);
+    }
+    setMessage('Setup-Link kopiert.');
   } catch (error) {
     setMessage('Kopieren nicht möglich.', true);
   }
