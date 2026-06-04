@@ -814,22 +814,45 @@ textarea {
   min-width: 0;
 }
 
-.history.is-editing-record .section-head,
-.history.is-editing-record .entries {
-  display: none;
-}
-
 .record-editor-page {
   display: grid;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  align-items: start;
+  justify-items: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
+  background: rgba(3, 7, 18, 0.72);
+  backdrop-filter: blur(6px);
 }
 
 .record-edit-form {
   display: grid;
   gap: 1rem;
+  width: min(760px, 100%);
+  max-height: calc(100vh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 1rem;
 }
 
 .record-back-button {
   justify-self: start;
+}
+
+.record-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.record-editor-actions .delete-entry {
+  margin-left: auto;
 }
 
 .record-value-editor {
@@ -839,6 +862,22 @@ textarea {
 .record-value-editor .meter-meta {
   grid-column: 1 / -1;
   min-height: 0;
+}
+
+.manual-record-editor {
+  gap: 0.85rem;
+}
+
+.manual-record-editor .result {
+  grid-column: 1 / -1;
+}
+
+.manual-record-editor label {
+  grid-column: 1 / -1;
+}
+
+.manual-record-editor label[hidden] {
+  display: none;
 }
 
 .entry-duration-grid {

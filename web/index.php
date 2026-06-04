@@ -186,7 +186,7 @@ $configWarnings = array_map(
             </div>
           </div>
           <div id="entriesList" class="entries"></div>
-          <section class="record-editor-page" id="recordEditorPage" hidden></section>
+          <section class="record-editor-page" id="recordEditorPage" role="dialog" aria-modal="true" aria-label="Messung bearbeiten" hidden></section>
         </section>
 
         <section class="account-card" id="accountView" hidden>

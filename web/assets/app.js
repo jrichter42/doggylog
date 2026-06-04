@@ -43,7 +43,6 @@ const state = {
   recordSortColumn: 'time',
   recordSortDirection: 'desc',
   editingEntryId: null,
-  recordScrollY: 0,
   saveTimers: new Map(),
 };
 
@@ -984,7 +983,7 @@ async function exportEntriesCsv() {
 function renderEntries() {
   renderRecordFilters();
   renderRecordEditor();
-  els.entriesList.hidden = !els.recordEditorPage.hidden;
+  els.entriesList.hidden = false;
   const entries = visibleEntries();
   els.recordExportButton.disabled = state.dogs.length === 0 && state.entries.length === 0;
   if (state.entries.length === 0) {
@@ -1059,23 +1058,41 @@ function formatRecordValue(value) {
   return `<strong>${escapeHtml(value)}</strong> <span class="muted">bpm</span>`;
 }
 
+function entryMeasurementTypes(type) {
+  if (type === 'both') return ['breath', 'pulse'];
+  return [type === 'pulse' ? 'pulse' : 'breath'];
+}
+
+function renderEntryHiddenField(field, value) {
+  return `<input type="hidden" data-field="${field}" value="${escapeHtml(value ?? '')}">`;
+}
+
+function renderEntryPills(options, selected, attr, field, multi = false) {
+  const selectedValues = Array.isArray(selected) ? selected : [selected];
+  return `
+    ${renderEntryHiddenField(field, multi ? selectedValues.join(', ') : selectedValues[0])}
+    <div class="pill-grid" role="group">
+      ${options.map((option) => pillButton({
+        value: option.value,
+        label: option.label,
+        active: selectedValues.includes(option.value),
+        deleteMode: false,
+        deleteCandidate: '',
+        attr,
+      }).replace('<button ', `<button data-edit-pill="${field}" data-edit-multi="${multi ? 'true' : 'false'}" `)).join('')}
+    </div>
+  `;
+}
+
 function renderEntryEditor(entry, type) {
-  const dogOptions = state.dogs.map((dog) => (
-    `<option value="${escapeHtml(dog._id)}" ${dog._id === entry.dog_id ? 'selected' : ''}>${escapeHtml(dog.name || 'Mein Hund')}</option>`
-  )).join('');
-  const modeOptions = sharedModes.map(([value, label]) => (
-    `<option value="${value}" ${value === entry.mode ? 'selected' : ''}>${label}</option>`
-  )).join('');
   const entryContexts = Array.isArray(entry.context_ids) ? entry.context_ids : [];
-  const contextOptions = state.contextPresets.map((context) => (
-    `<option value="${escapeHtml(context._id)}" ${entryContexts.includes(context._id) ? 'selected' : ''}>${escapeHtml(context.name)}</option>`
-  )).join('');
   const breathDuration = durationForEntry(entry, 'breath');
   const pulseDuration = durationForEntry(entry, 'pulse');
-  const locationOptions = state.locationPresets.map((location) => (
-    `<option value="${escapeHtml(location._id)}" ${location._id === (entry.location_id || state.location) ? 'selected' : ''}>${escapeHtml(location.name)}</option>`
-  )).join('');
   const showDog = state.dogs.length > 1;
+  const selectedTypes = entryMeasurementTypes(type);
+  const selectedDuration = type === 'pulse' ? pulseDuration : breathDuration;
+  const dogValue = entry.dog_id || state.dogs[0]?._id || '';
+  const locationValue = entry.location_id || state.location || state.locationPresets[0]?._id || '';
 
   return `
     <div class="record-edit-form" data-entry-editor="${escapeHtml(entry._id)}">
@@ -1087,85 +1104,135 @@ function renderEntryEditor(entry, type) {
       ${showDog ? `
         <div class="choice-block">
           <span class="control-title">Hund</span>
-          <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="dog_id">${dogOptions}</select>
+          ${renderEntryPills(
+            state.dogs.map((dog) => ({ value: dog._id, label: dog.name || 'Mein Hund' })),
+            dogValue,
+            'data-dog',
+            'dog_id',
+          )}
         </div>
-      ` : `<input type="hidden" data-field="dog_id" value="${escapeHtml(entry.dog_id || state.dogs[0]?._id || '')}">`}
+      ` : renderEntryHiddenField('dog_id', dogValue)}
       <div class="choice-block">
         <span class="control-title">Messung</span>
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="measurement_type">
-          <option value="breath" ${type === 'breath' ? 'selected' : ''}>Atemfrequenz</option>
-          <option value="pulse" ${type === 'pulse' ? 'selected' : ''}>Pulse</option>
-          <option value="both" ${type === 'both' ? 'selected' : ''}>Beides</option>
-        </select>
-      </div>
-      <div class="meter-stage record-value-editor">
-        <div class="meter-meta">
-          <span>Werte bearbeiten</span>
-          <span>bpm</span>
+        ${renderEntryHiddenField('measurement_type', type)}
+        <div class="big-switch" role="group" aria-label="Messart">
+          <button type="button" class="has-ui-icon ${selectedTypes.includes('breath') ? 'is-active' : ''} ${entry.breaths_per_minute !== null && entry.breaths_per_minute !== undefined && entry.breaths_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="breath">${labelWithIcon('wind', 'Atemfrequenz')}</button>
+          <button class="swap-type-button" type="button" aria-label="Atemfrequenz und Puls tauschen" title="Atemfrequenz und Puls tauschen" data-edit-swap-types>
+            <span aria-hidden="true">&#11013;</span>
+            <span aria-hidden="true">&#10145;</span>
+          </button>
+          <button type="button" class="has-ui-icon ${selectedTypes.includes('pulse') ? 'is-active' : ''} ${entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="pulse">${labelWithIcon('heart-pulse', 'Pulse')}</button>
         </div>
-        <label>
-          Atemfrequenz
-          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
-        </label>
-        <label>
-          Pulse
-          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
-        </label>
-      </div>
-      <div class="choice-block">
-        <span class="control-title">Modus</span>
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="mode">${modeOptions}</select>
       </div>
       <div class="choice-block">
         <span class="control-title">Dauer</span>
-        <div class="entry-duration-grid">
-          <label>
-            Atemfrequenz
-            <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="breath_duration_seconds">
-              <option value="15" ${breathDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
-              <option value="30" ${breathDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
-            </select>
-          </label>
-          <label>
-            Pulse
-            <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_duration_seconds">
-              <option value="15" ${pulseDuration === 15 ? 'selected' : ''}>15 Sekunden</option>
-              <option value="30" ${pulseDuration === 30 ? 'selected' : ''}>30 Sekunden</option>
-            </select>
-          </label>
+        ${renderEntryHiddenField('breath_duration_seconds', breathDuration)}
+        ${renderEntryHiddenField('pulse_duration_seconds', pulseDuration)}
+        <div class="segmented" role="group" aria-label="Messdauer">
+          <button type="button" class="has-ui-icon ${selectedDuration === 15 ? 'is-active' : ''}" data-edit-duration="15">${labelWithIcon('clock', '15 Sekunden')}</button>
+          <button type="button" class="has-ui-icon ${selectedDuration === 30 ? 'is-active' : ''}" data-edit-duration="30">${labelWithIcon('clock', '30 Sekunden')}</button>
+        </div>
+      </div>
+      <div class="meter-stage record-value-editor manual-record-editor">
+        <div class="meter-meta">
+          <span>Werte bearbeiten</span>
+          <span>Manuelle Eingabe</span>
+        </div>
+        <label ${selectedTypes.includes('breath') ? '' : 'hidden'}>
+          Atemfrequenz
+          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
+        </label>
+        <label ${selectedTypes.includes('pulse') ? '' : 'hidden'}>
+          Pulse
+          <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
+        </label>
+        <output class="result">${selectedTypes.map((selectedType) => {
+          const value = selectedType === 'pulse' ? entry.pulse_per_minute : entry.breaths_per_minute;
+          const unit = selectedType === 'pulse' ? 'Pulse/min' : 'Atemzüge/min';
+          return value !== null && value !== undefined && value !== '' ? `${escapeHtml(value)} ${unit}` : unit;
+        }).join(' · ')}</output>
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Modus</span>
+        ${renderEntryHiddenField('mode', entry.mode || 'resting')}
+        <div class="mode-grid" role="group" aria-label="Messmodus">
+          ${sharedModes.map(([value, label]) => (
+            `<button type="button" data-edit-set="mode" data-value="${value}" class="has-ui-icon ${value === (entry.mode || 'resting') ? 'is-active' : ''}">${labelWithIcon(modeIcon(value), label)}</button>`
+          )).join('')}
         </div>
       </div>
       <div class="choice-block">
         <span class="control-title">Ort</span>
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="location_id">
-          ${locationOptions}
-        </select>
+        ${renderEntryPills(
+          state.locationPresets.map((location) => ({ value: location._id, label: location.name })),
+          locationValue,
+          'data-location',
+          'location_id',
+        )}
       </div>
       <div class="choice-block">
         <span class="control-title">Kontext</span>
-        <select data-autosave-entry="${escapeHtml(entry._id)}" data-field="context_ids" multiple>${contextOptions}</select>
+        ${renderEntryPills(
+          state.contextPresets.map((context) => ({ value: context._id, label: context.name })),
+          entryContexts,
+          'data-context',
+          'context_ids',
+          true,
+        )}
       </div>
       <div class="choice-block">
         <span class="control-title">Notizen</span>
         <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="notes">${escapeHtml(entry.notes || entry.comment || '')}</textarea>
       </div>
-      <button class="delete-entry has-ui-icon" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">${labelWithIcon('trash', 'Löschen')}</button>
+      <div class="record-editor-actions">
+        <button class="primary has-ui-icon" type="button" data-record-save>${labelWithIcon('save', 'Speichern')}</button>
+        <button class="delete-entry has-ui-icon" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">${labelWithIcon('trash', 'Löschen')}</button>
+      </div>
     </div>
   `;
 }
 
+function entryEditorField(editor, field) {
+  return editor.querySelector(`[data-field="${field}"]`);
+}
+
+function editorSelectedTypes(editor) {
+  return entryMeasurementTypes(entryEditorField(editor, 'measurement_type')?.value);
+}
+
+function setEntryEditorMeasurementType(editor, type) {
+  entryEditorField(editor, 'measurement_type').value = type;
+  const selected = entryMeasurementTypes(type);
+  editor.querySelectorAll('[data-edit-measure-type]').forEach((button) => {
+    button.classList.toggle('is-active', selected.includes(button.dataset.editMeasureType));
+  });
+  editor.querySelector('[data-field="breaths_per_minute"]')?.closest('label')?.toggleAttribute('hidden', !selected.includes('breath'));
+  editor.querySelector('[data-field="pulse_per_minute"]')?.closest('label')?.toggleAttribute('hidden', !selected.includes('pulse'));
+}
+
+function queueEntryEditorSave(editor) {
+  queueEntrySave(editor.dataset.entryEditor);
+}
+
+function handleRecordEditorBackdrop(event) {
+  if (event.target !== els.recordEditorPage) return;
+  closeEntryEditor().catch((error) => setMessage(error.message, true));
+}
+
 function renderRecordEditor() {
   const entry = state.entries.find((item) => item._id === state.editingEntryId);
-  els.recordsView.classList.toggle('is-editing-record', Boolean(entry));
   els.recordEditorPage.hidden = !entry;
   if (!entry) {
     state.editingEntryId = null;
     els.recordEditorPage.innerHTML = '';
+    els.recordEditorPage.onclick = null;
     return;
   }
   const type = entryType(entry);
   els.recordEditorPage.innerHTML = renderEntryEditor(entry, type);
+  els.recordEditorPage.onclick = handleRecordEditorBackdrop;
   els.recordEditorPage.querySelector('[data-record-back]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
+  els.recordEditorPage.querySelector('[data-record-save]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
   els.recordEditorPage.querySelectorAll('[data-delete-entry]').forEach((button) => {
     button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
   });
@@ -1173,24 +1240,87 @@ function renderRecordEditor() {
     const eventName = input.tagName === 'TEXTAREA' || input.type === 'number' || input.type === 'datetime-local' ? 'input' : 'change';
     input.addEventListener(eventName, () => queueEntrySave(input.dataset.autosaveEntry));
   });
+  els.recordEditorPage.querySelectorAll('[data-edit-set]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const editor = button.closest('[data-entry-editor]');
+      entryEditorField(editor, button.dataset.editSet).value = button.dataset.value;
+      editor.querySelectorAll(`[data-edit-set="${button.dataset.editSet}"]`).forEach((item) => item.classList.toggle('is-active', item === button));
+      queueEntryEditorSave(editor);
+    });
+  });
+  els.recordEditorPage.querySelectorAll('[data-edit-pill]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const editor = button.closest('[data-entry-editor]');
+      const field = button.dataset.editPill;
+      const input = entryEditorField(editor, field);
+      if (button.dataset.editMulti === 'true') {
+        const values = input.value.split(',').map((value) => value.trim()).filter(Boolean);
+        const next = values.includes(button.dataset.context)
+          ? values.filter((value) => value !== button.dataset.context)
+          : [...values, button.dataset.context];
+        input.value = next.join(', ');
+        button.classList.toggle('is-active', next.includes(button.dataset.context));
+      } else {
+        const value = button.dataset.dog || button.dataset.location || '';
+        input.value = value;
+        editor.querySelectorAll(`[data-edit-pill="${field}"]`).forEach((item) => item.classList.toggle('is-active', item === button));
+      }
+      queueEntryEditorSave(editor);
+    });
+  });
+  els.recordEditorPage.querySelectorAll('[data-edit-measure-type]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const editor = button.closest('[data-entry-editor]');
+      const current = entryEditorField(editor, 'measurement_type').value;
+      const clicked = button.dataset.editMeasureType;
+      const next = current === clicked ? clicked : (current === 'both' ? clicked : 'both');
+      setEntryEditorMeasurementType(editor, next);
+      queueEntryEditorSave(editor);
+    });
+  });
+  els.recordEditorPage.querySelectorAll('[data-edit-duration]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const editor = button.closest('[data-entry-editor]');
+      const duration = button.dataset.editDuration;
+      editorSelectedTypes(editor).forEach((selectedType) => {
+        entryEditorField(editor, `${selectedType}_duration_seconds`).value = duration;
+      });
+      editor.querySelectorAll('[data-edit-duration]').forEach((item) => item.classList.toggle('is-active', item === button));
+      queueEntryEditorSave(editor);
+    });
+  });
+  els.recordEditorPage.querySelector('[data-edit-swap-types]')?.addEventListener('click', () => {
+    const editor = els.recordEditorPage.querySelector('[data-entry-editor]');
+    const breathValue = entryEditorField(editor, 'breaths_per_minute').value;
+    const pulseValue = entryEditorField(editor, 'pulse_per_minute').value;
+    const breathDurationValue = entryEditorField(editor, 'breath_duration_seconds').value;
+    const pulseDurationValue = entryEditorField(editor, 'pulse_duration_seconds').value;
+    entryEditorField(editor, 'breaths_per_minute').value = pulseValue;
+    entryEditorField(editor, 'pulse_per_minute').value = breathValue;
+    entryEditorField(editor, 'breath_duration_seconds').value = pulseDurationValue;
+    entryEditorField(editor, 'pulse_duration_seconds').value = breathDurationValue;
+    const current = entryEditorField(editor, 'measurement_type').value;
+    setEntryEditorMeasurementType(editor, current === 'breath' ? 'pulse' : (current === 'pulse' ? 'breath' : 'both'));
+    queueEntryEditorSave(editor);
+  });
 }
 
 function openEntryEditor(id) {
-  state.recordScrollY = pageScrollTop();
   state.editingEntryId = id;
-  renderEntries();
-  scrollPageTo(0);
+  renderRecordEditor();
 }
 
 async function closeEntryEditor() {
   const id = state.editingEntryId;
+  const scrollTop = pageScrollTop();
   if (id !== null) {
     clearTimeout(state.saveTimers.get(id));
     await saveEntryEdit(id);
   }
   state.editingEntryId = null;
   await loadEntries();
-  scrollPageTo(state.recordScrollY);
+  renderRecordEditor();
+  scrollPageTo(scrollTop);
 }
 
 function queueEntrySave(id) {
@@ -1203,10 +1333,12 @@ async function saveEntryEdit(id) {
   const editor = document.querySelector(`[data-entry-editor="${cssEscape(id)}"]`);
   if (!entry || !editor) return;
 
-  const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => [
-    input.dataset.field,
-    input.multiple ? Array.from(input.selectedOptions).map((option) => option.value) : input.value,
-  ]));
+  const values = Object.fromEntries(Array.from(editor.querySelectorAll('[data-field]')).map((input) => {
+    const value = input.dataset.field === 'context_ids'
+      ? input.value.split(',').map((item) => item.trim()).filter(Boolean)
+      : (input.multiple ? Array.from(input.selectedOptions).map((option) => option.value) : input.value);
+    return [input.dataset.field, value];
+  }));
   const dog = state.dogs.find((item) => item._id === values.dog_id);
   const measurementType = ['breath', 'pulse', 'both'].includes(values.measurement_type) ? values.measurement_type : 'breath';
   const object = {
@@ -1417,6 +1549,10 @@ els.loginEmailForm.addEventListener('submit', async (event) => {
   } finally {
     if (submitButton) submitButton.disabled = false;
   }
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || els.recordEditorPage.hidden) return;
+  closeEntryEditor().catch((error) => setMessage(error.message, true));
 });
 
 document.querySelectorAll('[data-measure-type]').forEach((button) => {
