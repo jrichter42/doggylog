@@ -1036,12 +1036,6 @@ textarea {
   padding: 0.75rem 0.9rem;
 }
 
-.danger-action.is-confirming {
-  border-color: #f43f5e;
-  background: #3b1116;
-  color: #fda4af;
-}
-
 .entry-actions {
   display: flex;
   flex-wrap: wrap;

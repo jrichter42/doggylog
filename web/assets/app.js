@@ -34,7 +34,6 @@ const state = {
   results: { breath: null, pulse: null },
   resultTaps: { breath: 0, pulse: 0 },
   resultDurations: { breath: null, pulse: null },
-  resetConfirmation: false,
   recordDogFilter: '',
   recordTypeFilter: '',
   recordSortColumn: 'time',
@@ -459,12 +458,18 @@ function resetMeasurement() {
   els.saveState.hidden = true;
 }
 
-function setResetConfirmation(active) {
-  state.resetConfirmation = active;
-  els.newMeasurementButton.classList.toggle('is-confirming', active);
-  const label = state.measuring ? 'Messung abbrechen' : (active ? 'Wirklich neu?' : 'Neue Messung');
-  const iconName = state.measuring ? 'x' : (active ? 'help-circle' : 'rotate-ccw');
+function setResetConfirmation() {
+  const label = state.measuring ? cancelMeasurementLabel() : discardMeasurementLabel();
+  const iconName = state.measuring ? 'x' : 'rotate-ccw';
   setLabelWithIcon(els.newMeasurementButton, iconName, label);
+}
+
+function discardMeasurementLabel() {
+  return state.measureType === 'breath' ? 'Atemzüge verwerfen' : 'Pulse verwerfen';
+}
+
+function cancelMeasurementLabel() {
+  return state.measureType === 'breath' ? 'Atemmessung abbrechen' : 'Pulsmessung abbrechen';
 }
 
 function resetMeasurementRun() {
@@ -1230,8 +1235,8 @@ function renderEntryEditor(entry, type) {
         <span class="control-title">Messung</span>
         ${renderEntryHiddenField('measurement_type', type)}
         <div class="big-switch" role="group" aria-label="Messart">
-          <button type="button" class="has-ui-icon ${selectedTypes.includes('breath') ? 'is-active' : ''} ${entry.breaths_per_minute !== null && entry.breaths_per_minute !== undefined && entry.breaths_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="breath">${labelWithIcon('wind', 'Atemfrequenz')}</button>
-          <button type="button" class="has-ui-icon ${selectedTypes.includes('pulse') ? 'is-active' : ''} ${entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="pulse">${labelWithIcon('heart-pulse', 'Pulse')}</button>
+          <button type="button" class="has-ui-icon ${selectedTypes.includes('breath') ? 'is-active' : ''}" data-edit-measure-type="breath">${labelWithIcon('wind', 'Atemfrequenz')}</button>
+          <button type="button" class="has-ui-icon ${selectedTypes.includes('pulse') ? 'is-active' : ''}" data-edit-measure-type="pulse">${labelWithIcon('heart-pulse', 'Pulse')}</button>
         </div>
       </div>
       <div class="choice-block">
@@ -1716,15 +1721,10 @@ els.newMeasurementButton.addEventListener('click', () => {
     renderMeasurementControls();
     return;
   }
-  if (!state.resetConfirmation) {
-    setResetConfirmation(true);
-    els.newMeasurementButton.focus();
-    return;
-  }
+  if (!window.confirm(`${discardMeasurementLabel()}?`)) return;
   resetMeasurement();
   renderMeasurementControls();
 });
-els.newMeasurementButton.addEventListener('blur', () => setResetConfirmation(false));
 els.entryForm.addEventListener('submit', (event) => saveEntry(event).catch((error) => {
   els.saveState.hidden = false;
   els.saveState.textContent = error.message;
