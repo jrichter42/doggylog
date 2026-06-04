@@ -20,8 +20,13 @@ $configWarnings = array_map(
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <meta name="theme-color" content="#121721">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="<?= $appName ?>">
     <title><?= $appName ?></title>
-    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="icon" href="assets/logo.png" type="image/png" sizes="any">
+    <link rel="shortcut icon" href="assets/logo.png" type="image/png">
+    <link rel="apple-touch-icon" href="assets/logo.png" sizes="180x180">
     <link rel="stylesheet" href="assets/app.css">
   </head>
   <body>
