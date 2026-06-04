@@ -351,7 +351,15 @@ try {
             $user = require_user($auth);
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
+            $oldUsername = (string) $user['username'];
+            $newUsername = array_key_exists('username', $body) ? trim((string) $body['username']) : $oldUsername;
+            if ($newUsername !== '' && strcasecmp($oldUsername, $newUsername) !== 0) {
+                $storage->assertUserDataRenameAvailable($oldUsername, $newUsername);
+            }
             $updated = $auth->updateAccount((string) $user['username'], $body);
+            if (strcasecmp($oldUsername, (string) $updated['username']) !== 0) {
+                $storage->renameUserData($oldUsername, (string) $updated['username']);
+            }
             Http::json([
                 'ok' => true,
                 'user' => $updated,
@@ -411,15 +419,6 @@ try {
             Http::json(['ok' => true, 'account' => $auth->account((string) $user['username'])]);
             break;
 
-        case 'account-create-setup-token':
-            Http::requireMethod('POST');
-            $user = require_user($auth);
-            $body = Http::readJsonBody();
-            require_csrf($auth, $body);
-            $setup = $auth->createSetupToken((string) $user['username'], (string) $user['username']);
-            Http::json(['ok' => true, 'setup' => $setup]);
-            break;
-
         case 'admin-users':
             Http::requireMethod('GET');
             require_permission($auth, 'manage_users');
@@ -455,7 +454,8 @@ try {
                 $username,
                 (string) ($body['display_name'] ?? ''),
                 $permissions,
-                (string) $admin['username']
+                (string) $admin['username'],
+                (string) ($body['email'] ?? '')
             );
             $setup = $auth->createSetupToken((string) $user['username'], (string) $admin['username']);
             Http::json(['ok' => true, 'user' => $user, 'setup' => $setup]);

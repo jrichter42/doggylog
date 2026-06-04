@@ -285,9 +285,46 @@ final class Storage
         return $deleted;
     }
 
+    public function assertUserDataRenameAvailable(string $oldUsername, string $newUsername): void
+    {
+        $this->assertUsername($oldUsername);
+        $this->assertUsername($newUsername);
+        if (strcasecmp($oldUsername, $newUsername) === 0) {
+            return;
+        }
+
+        $target = $this->userPath($newUsername);
+        if (file_exists($target)) {
+            throw new InvalidArgumentException('User data folder already exists.');
+        }
+    }
+
+    public function renameUserData(string $oldUsername, string $newUsername): void
+    {
+        $this->assertUserDataRenameAvailable($oldUsername, $newUsername);
+        if (strcasecmp($oldUsername, $newUsername) === 0) {
+            return;
+        }
+
+        $source = $this->userPath($oldUsername);
+        if (!is_dir($source)) {
+            return;
+        }
+
+        if (!rename($source, $this->userPath($newUsername))) {
+            throw new InvalidArgumentException('Could not rename user data folder.');
+        }
+    }
+
     private function dataPath(): string
     {
         return $this->basePath . '/data';
+    }
+
+    private function userPath(string $username): string
+    {
+        $this->assertUsername($username);
+        return $this->dataPath() . '/' . $username;
     }
 
     private function varPath(): string
@@ -299,7 +336,7 @@ final class Storage
     {
         $this->assertCollection($type);
         $this->assertUsername($username);
-        return $this->dataPath() . '/' . $username . '/' . self::COLLECTIONS[$type];
+        return $this->userPath($username) . '/' . self::COLLECTIONS[$type];
     }
 
     private function objectPath(string $type, string $id, string $username): string

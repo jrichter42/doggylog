@@ -614,7 +614,8 @@ main {
 }
 
 .save-panel,
-.inline-form {
+.inline-form,
+.account-profile-form {
   display: grid;
   gap: 0.85rem;
 }
@@ -684,7 +685,36 @@ textarea {
 }
 
 .user-create-form {
-  grid-template-columns: 1fr 1fr auto auto;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.user-create-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.user-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.account-profile-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.account-setup-row {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: start;
+}
+
+.account-setup-row .muted {
+  margin: 0;
 }
 
 .checkbox-line {
@@ -702,6 +732,21 @@ textarea {
 .checkbox-line input {
   min-height: 0;
   width: auto;
+}
+
+.user-permission-line {
+  justify-self: start;
+}
+
+.user-status-button {
+  margin-left: auto;
+}
+
+.user-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: center;
 }
 
 .entries,
@@ -979,8 +1024,8 @@ textarea {
   border-color: #7f1d1d;
   background: #3b1116;
   color: #fda4af;
-  min-height: 36px;
-  padding: 0.35rem 0.6rem;
+  min-height: 48px;
+  padding: 0.75rem 0.9rem;
 }
 
 .danger-action.is-confirming {
@@ -993,6 +1038,10 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+
+.entry-actions .delete-entry {
+  margin-left: auto;
 }
 
 .dog-edit {
@@ -1016,6 +1065,8 @@ footer {
 
   .form-grid,
   .inline-form,
+  .account-profile-form,
+  .user-create-fields,
   .location-grid,
   .record-tools,
   .record-value-editor,

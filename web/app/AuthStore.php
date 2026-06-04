@@ -144,10 +144,10 @@ final class AuthStore
      * @param array<string, mixed> $patch
      * @return array<string, mixed>
      */
-    public function updateUser(string $username, array $patch, ?string $updatedBy, bool $allowEmail = false, bool $includeEmail = false): array
+    public function updateUser(string $username, array $patch, ?string $updatedBy, bool $allowEmail = false, bool $includeEmail = false, bool $allowUsername = false): array
     {
         $emailChanged = false;
-        $updated = $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $patch, $updatedBy, $allowEmail, $includeEmail, &$emailChanged): array {
+        $updated = $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($username, $patch, $updatedBy, $allowEmail, $includeEmail, $allowUsername, &$emailChanged): array {
             $index = $this->findUserIndex($data, $username);
             if ($index === null) {
                 throw new InvalidArgumentException('Unknown user.');
@@ -157,7 +157,11 @@ final class AuthStore
             if (array_key_exists('username', $patch)) {
                 $newUsername = $this->normalizeUsername((string) $patch['username'], false);
                 if (strcasecmp($newUsername, (string) ($user['username'] ?? '')) !== 0) {
-                    throw new InvalidArgumentException('Username cannot be changed.');
+                    if (!$allowUsername) {
+                        throw new InvalidArgumentException('Username cannot be changed.');
+                    }
+                    $this->assertUsernameAvailable($data, $newUsername, (string) ($user['username'] ?? ''));
+                    $user['username'] = $newUsername;
                 }
             }
 
@@ -176,7 +180,11 @@ final class AuthStore
             }
 
             if (array_key_exists('permissions', $patch) && is_array($patch['permissions'])) {
-                $user['permissions'] = $this->normalizePermissions($patch['permissions']);
+                $permissions = $this->normalizePermissions($patch['permissions']);
+                if ($this->isProtectedAdmin($user) && !in_array('manage_users', $permissions, true)) {
+                    throw new InvalidArgumentException('Initial admin must keep user management permission.');
+                }
+                $user['permissions'] = $permissions;
             }
 
             $user['updated_at'] = $this->now();
@@ -203,10 +211,18 @@ final class AuthStore
         if (array_key_exists('display_name', $patch)) {
             $allowedPatch['display_name'] = $patch['display_name'];
         }
+        if (array_key_exists('username', $patch)) {
+            $allowedPatch['username'] = $patch['username'];
+        }
         if (array_key_exists('email', $patch)) {
             $allowedPatch['email'] = $patch['email'];
         }
-        return $this->updateUser($username, $allowedPatch, $username, true, true);
+        $updated = $this->updateUser($username, $allowedPatch, $username, true, true, true);
+        if (($updated['username'] ?? $username) !== $username) {
+            $this->startSession();
+            $_SESSION['username'] = (string) $updated['username'];
+        }
+        return $updated;
     }
 
     /**
@@ -1018,12 +1034,26 @@ final class AuthStore
             'display_name' => (string) ($user['display_name'] ?? ''),
             'enabled' => (bool) ($user['enabled'] ?? false),
             'permissions' => array_values(array_intersect(self::PERMISSIONS, $permissions)),
+            'protected_admin' => $this->isProtectedAdmin($user),
             'credential_count' => count($user['credentials'] ?? []),
             'created_at' => $user['created_at'] ?? null,
             'updated_at' => $user['updated_at'] ?? null,
             'last_login_at' => $user['last_login_at'] ?? null,
             'needs_setup' => count($user['credentials'] ?? []) === 0,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $user
+     */
+    private function isProtectedAdmin(array $user): bool
+    {
+        $permissions = is_array($user['permissions'] ?? null) ? $user['permissions'] : [];
+        return in_array('manage_users', $permissions, true)
+            && (
+                ($user['created_by'] ?? null) === null
+                || strcasecmp((string) ($user['username'] ?? ''), $this->initialAdminUsername) === 0
+            );
     }
 
     /**

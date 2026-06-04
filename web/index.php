@@ -192,13 +192,29 @@ $configWarnings = array_map(
         <section class="account-card" id="accountView" hidden>
           <section class="access-card">
             <div class="section-head">
-              <h2>Zugang</h2>
+              <h2>Benutzerkonto</h2>
               <div class="section-actions">
-                <button id="selfSetupButton" type="button" data-icon="key">Setup-Link erstellen</button>
                 <button class="delete-entry" id="logoutButton" type="button" data-icon="logOut">Logout</button>
               </div>
             </div>
-            <p class="muted">Einmaliger Link für weiteren Passkey dieses Benutzers.</p>
+            <form class="account-profile-form" id="accountProfileForm">
+              <label>
+                Benutzername
+                <input name="username" autocomplete="username" required>
+              </label>
+              <label>
+                Anzeigename
+                <input name="display_name" autocomplete="name">
+              </label>
+              <label>
+                E-Mail-Adresse
+                <input name="email" type="email" autocomplete="email">
+              </label>
+              <button class="primary" type="submit" data-icon="save">Speichern</button>
+            </form>
+            <div class="account-setup-row">
+              <button id="selfSetupButton" type="button" data-icon="key">Passkey auf diesem Gerät hinzufügen</button>
+            </div>
             <p class="setup-link" id="selfSetupResult" hidden></p>
           </section>
 
@@ -215,18 +231,29 @@ $configWarnings = array_map(
 
           <section class="admin" id="adminPanel" hidden>
             <div class="section-head">
-              <h2>Benutzer</h2>
+              <h2>Benutzer erstellen</h2>
             </div>
-            <form id="createUserForm" class="inline-form user-create-form">
-              <input name="username" placeholder="Benutzername" autocomplete="off" required>
-              <input name="display_name" placeholder="Anzeigename" autocomplete="name">
-              <label class="checkbox-line">
-                <input name="manage_users" type="checkbox" value="1">
-                Benutzerverwaltung
-              </label>
-              <button type="submit" data-icon="key">Setup-Link erstellen</button>
+            <form id="createUserForm" class="user-create-form">
+              <div class="user-create-fields">
+                <input name="username" placeholder="Benutzername" autocomplete="off" required>
+                <input name="display_name" placeholder="Anzeigename" autocomplete="name">
+                <input name="email" type="email" placeholder="E-Mail-Adresse" autocomplete="email">
+              </div>
+              <div class="user-create-actions">
+                <label class="checkbox-line">
+                  <input name="manage_users" type="checkbox" value="1">
+                  Kann Benutzer verwalten
+                </label>
+                <button class="primary" type="submit" data-icon="user-plus">Benutzer anlegen</button>
+              </div>
             </form>
             <p class="setup-link" id="setupResult" hidden></p>
+          </section>
+
+          <section class="admin" id="userAdminPanel" hidden>
+            <div class="section-head">
+              <h2>Alle Benutzer</h2>
+            </div>
             <div id="userList" class="user-list"></div>
           </section>
         </section>

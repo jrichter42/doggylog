@@ -14,6 +14,7 @@ const hashView = window.location.hash.slice(1);
 
 const state = {
   status: null,
+  account: null,
   entries: [],
   dogs: [],
   measureType: 'breath',
@@ -105,9 +106,11 @@ const els = {
   selfSetupButton: $('selfSetupButton'),
   selfSetupResult: $('selfSetupResult'),
   logoutButton: $('logoutButton'),
+  accountProfileForm: $('accountProfileForm'),
   dogCreateForm: $('dogCreateForm'),
   dogList: $('dogList'),
   adminPanel: $('adminPanel'),
+  userAdminPanel: $('userAdminPanel'),
   createUserForm: $('createUserForm'),
   setupResult: $('setupResult'),
   userList: $('userList'),
@@ -229,6 +232,27 @@ async function passkeySetup(event) {
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
   state.emailLoginOffered = false;
   await refresh();
+}
+
+async function addAccountPasskey() {
+  setMessage('');
+  requirePasskeys();
+  els.selfSetupButton.disabled = true;
+  els.selfSetupResult.hidden = false;
+  els.selfSetupResult.textContent = 'Passkey wird erstellt...';
+  try {
+    const options = await api('account-passkey-options', { method: 'POST', body: {} });
+    const credential = await navigator.credentials.create({ publicKey: decodePublicKeyOptions(options.publicKey) });
+    const result = await api('account-passkey-verify', {
+      method: 'POST',
+      body: { challenge_id: options.challenge_id, credential: serializeCredential(credential) },
+    });
+    state.account = result.account || state.account;
+    els.selfSetupResult.textContent = 'Passkey hinzugefügt.';
+    renderAccountView();
+  } finally {
+    els.selfSetupButton.disabled = false;
+  }
 }
 
 async function verifyEmailLogin(token) {
@@ -637,14 +661,27 @@ async function loadTaxonomy() {
 }
 
 async function loadAccountView() {
+  const result = await api('account');
+  state.account = result.account || null;
   renderAccountView();
-  if (!els.adminPanel.hidden) await loadUsers();
+  if (!els.adminPanel.hidden || !els.userAdminPanel.hidden) await loadUsers();
 }
 
 function renderAccountView() {
-  const user = state.status?.auth?.user;
-  els.adminPanel.hidden = !user?.permissions?.includes('manage_users');
+  const user = state.account?.user || state.status?.auth?.user;
+  const canManageUsers = user?.permissions?.includes('manage_users');
+  els.adminPanel.hidden = !canManageUsers;
+  els.userAdminPanel.hidden = !canManageUsers;
+  renderAccountProfile();
   renderAccountDogs();
+}
+
+function renderAccountProfile() {
+  const user = state.account?.user || state.status?.auth?.user || {};
+  if (!els.accountProfileForm) return;
+  els.accountProfileForm.elements.username.value = user.username || '';
+  els.accountProfileForm.elements.display_name.value = user.display_name || '';
+  els.accountProfileForm.elements.email.value = user.email || '';
 }
 
 function renderAccountDogs() {
@@ -711,14 +748,86 @@ async function deleteAccountDog(id, revision) {
   renderEntries();
 }
 
+async function saveAccountProfile(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const result = await api('account-update', {
+    method: 'POST',
+    body: {
+      username: form.get('username'),
+      display_name: form.get('display_name'),
+      email: form.get('email'),
+    },
+  });
+  state.account = result.account || null;
+  if (state.status?.auth) state.status.auth.user = result.user || state.account?.user || state.status.auth.user;
+  renderAccountView();
+  renderDogSelect();
+  renderEntries();
+  setMessage('Benutzerkonto gespeichert.');
+}
+
 async function loadUsers() {
   const result = await api('admin-users');
   els.userList.innerHTML = (result.users || []).map((user) => `
-    <div class="user-row">
-      <strong>${escapeHtml(user.display_name || user.username)}</strong>
-      <span class="muted">${escapeHtml(user.username)} - ${user.enabled ? 'aktiv' : 'deaktiviert'}${user.permissions.includes('manage_users') ? ' - Benutzerverwaltung' : ''}</span>
+    <div class="user-row" data-user-row="${escapeHtml(user.username)}">
+      <strong>${escapeHtml(user.username)} · ${escapeHtml(user.display_name || 'Kein Anzeigename')}</strong>
+      <span class="muted">${escapeHtml(user.email || 'Keine E-Mail-Adresse')}</span>
+      <div class="user-row-actions">
+        <label class="checkbox-line user-permission-line">
+          <input type="checkbox" data-user-permission="${escapeHtml(user.username)}" ${user.permissions.includes('manage_users') ? 'checked' : ''} ${user.protected_admin ? 'disabled' : ''}>
+          Kann Benutzer verwalten
+        </label>
+        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.username)}" data-enabled="${user.enabled ? 'true' : 'false'}">
+          ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
+        </button>
+      </div>
     </div>
   `).join('');
+  els.userList.querySelectorAll('[data-user-enabled]').forEach((input) => {
+    input.addEventListener('click', () => updateUserEnabled(input).catch((error) => setMessage(error.message, true)));
+  });
+  els.userList.querySelectorAll('[data-user-permission]').forEach((input) => {
+    input.addEventListener('change', () => updateUserPermissions(input).catch((error) => setMessage(error.message, true)));
+  });
+}
+
+async function updateUserEnabled(input) {
+  input.disabled = true;
+  try {
+    const enabled = input.dataset.enabled !== 'true';
+    await api('admin-update-user', {
+      method: 'POST',
+      body: {
+        username: input.dataset.userEnabled,
+        enabled,
+      },
+    });
+    await loadUsers();
+    if (input.dataset.userEnabled === state.status?.auth?.user?.username) await refresh();
+    setMessage('Benutzerstatus gespeichert.');
+  } finally {
+    input.disabled = false;
+  }
+}
+
+async function updateUserPermissions(input) {
+  input.disabled = true;
+  try {
+    const permissions = input.checked ? ['manage_users'] : [];
+    await api('admin-update-user', {
+      method: 'POST',
+      body: {
+        username: input.dataset.userPermission,
+        permissions,
+      },
+    });
+    await loadUsers();
+    if (input.dataset.userPermission === state.status?.auth?.user?.username) await refresh();
+    setMessage('Benutzerrechte gespeichert.');
+  } finally {
+    input.disabled = false;
+  }
 }
 
 function renderDogSelect() {
@@ -1693,20 +1802,16 @@ els.recordExportButton.addEventListener('click', () => {
       els.recordExportButton.disabled = state.dogs.length === 0 && state.entries.length === 0;
     });
 });
-els.selfSetupButton.addEventListener('click', async () => {
+els.selfSetupButton.addEventListener('click', () => addAccountPasskey().catch((error) => {
   els.selfSetupResult.hidden = false;
-  els.selfSetupResult.textContent = 'Erstelle Link...';
-  try {
-    const result = await api('account-create-setup-token', { method: 'POST', body: {} });
-    renderSetupLink(els.selfSetupResult, result.setup?.setup_url || '');
-  } catch (error) {
-    els.selfSetupResult.textContent = error.message;
-  }
-});
+  els.selfSetupResult.textContent = error.message;
+  setMessage(error.message, true);
+}));
 els.logoutButton.addEventListener('click', async () => {
   await api('auth-logout', { method: 'POST', body: {} });
   window.location.href = './';
 });
+els.accountProfileForm.addEventListener('submit', (event) => saveAccountProfile(event).catch((error) => setMessage(error.message, true)));
 els.dogCreateForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -1724,6 +1829,7 @@ els.createUserForm.addEventListener('submit', async (event) => {
     body: {
       username: form.get('username'),
       display_name: form.get('display_name'),
+      email: form.get('email'),
       permissions: form.get('manage_users') === '1' ? ['manage_users'] : [],
     },
   });
