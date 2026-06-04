@@ -86,7 +86,7 @@ $configWarnings = array_map(
             <div class="choice-block" id="dogSelectLabel">
               <span class="control-title">Hund</span>
               <input id="dogSelect" type="hidden">
-              <div class="pill-grid dog-buttons" id="dogButtons" role="group" aria-label="Hund"></div>
+              <div class="choice-grid dog-buttons" id="dogButtons" role="group" aria-label="Hund"></div>
             </div>
             <div class="dog-name" id="dogNameDisplay" hidden>
               <span class="control-title">Hund</span>
@@ -97,20 +97,16 @@ $configWarnings = array_map(
           <div class="choice-block">
             <span class="control-title">Messung</span>
             <div class="big-switch" role="group" aria-label="Messart">
-              <button type="button" class="is-active" data-measure-type="breath" data-icon="wind">Atemfrequenz</button>
-              <button type="button" data-measure-type="pulse" data-icon="heart-pulse">Pulse</button>
-            </div>
-          </div>
-
-          <div class="choice-block">
-            <span class="control-title">Dauer</span>
-            <div class="segmented" role="group" aria-label="Messdauer">
-              <button type="button" data-duration="15" class="is-active" data-icon="clock">15 Sekunden</button>
-              <button type="button" data-duration="30" data-icon="clock">30 Sekunden</button>
+              <button type="button" class="is-active" data-measure-type="breath" data-icon="wind">Atmung</button>
+              <button type="button" data-measure-type="pulse" data-icon="heart-pulse">Puls</button>
             </div>
           </div>
 
           <div class="meter-stage" id="meterStage">
+            <div class="segmented" role="group" aria-label="Messdauer">
+              <button type="button" data-duration="15" class="is-active" data-icon="clock">15 Sekunden</button>
+              <button type="button" data-duration="30" data-icon="clock">30 Sekunden</button>
+            </div>
             <div class="measurement-progress" id="measurementProgress" aria-hidden="true">
               <div class="measurement-progress-fill" id="measurementProgressFill"></div>
             </div>
@@ -119,6 +115,7 @@ $configWarnings = array_map(
               <span id="meterCount">0 Taps</span>
             </div>
             <button class="tap-button" id="tapButton" type="button">
+              <span class="tap-button-icon" id="tapButtonIcon" aria-hidden="true"></span>
               <span id="tapButtonMain">Messung starten</span>
               <small id="tapButtonSub">Erster Tap startet Timer</small>
             </button>
@@ -134,23 +131,17 @@ $configWarnings = array_map(
           <form class="save-panel" id="entryForm">
             <input name="measured_at" id="measuredAtInput" type="hidden">
             <div class="choice-block">
-              <div class="choice-head">
-                <span class="control-title">Ort</span>
-                <div class="pill-actions">
-                  <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen" data-icon-only="plus"></button>
-                </div>
+              <span class="control-title">Ort</span>
+              <div class="choice-grid" id="locationButtons" role="group" aria-label="Ort">
+                <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen" data-icon-only="plus"></button>
               </div>
-              <div class="pill-grid" id="locationButtons" role="group" aria-label="Ort"></div>
             </div>
             <div class="choice-block">
-              <div class="choice-head">
-                <span class="control-title">Kontext</span>
-                <div class="pill-actions">
-                  <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen" data-icon-only="plus"></button>
-                </div>
-              </div>
+              <span class="control-title">Kontext</span>
               <input id="contextInput" name="context" type="hidden">
-              <div class="pill-grid" id="contextButtons" role="group" aria-label="Kontext"></div>
+              <div class="pill-grid" id="contextButtons" role="group" aria-label="Kontext">
+                <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen" data-icon-only="plus"></button>
+              </div>
             </div>
             <div class="choice-block">
               <span class="control-title">Notizen</span>
@@ -162,9 +153,6 @@ $configWarnings = array_map(
         </section>
 
         <section class="history" id="recordsView" hidden>
-          <div class="record-export-row">
-            <button class="record-export-button" id="recordExportButton" type="button" data-icon="download">CSV exportieren</button>
-          </div>
           <div class="section-head record-filter-head">
             <div class="record-tools">
               <select id="recordDogFilter" aria-label="Hund filtern" hidden>
@@ -173,11 +161,12 @@ $configWarnings = array_map(
               <span class="single-dog-name" id="recordSingleDogName" hidden></span>
               <select id="recordTypeFilter" aria-label="Messart filtern">
                 <option value="">Alle Messungen</option>
-                <option value="breath">Atemfrequenz</option>
-                <option value="pulse">Pulse</option>
-                <option value="both">Beides</option>
+                <option value="breath">Atmung</option>
+                <option value="pulse">Puls</option>
+                <option value="both">Atmung + Puls</option>
               </select>
             </div>
+            <button class="record-export-button" id="recordExportButton" type="button" data-icon="download">CSV exportieren</button>
           </div>
           <div id="entriesList" class="entries"></div>
           <section class="record-editor-page" id="recordEditorPage" role="dialog" aria-modal="true" aria-label="Messung bearbeiten" hidden></section>

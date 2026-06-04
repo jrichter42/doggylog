@@ -33,7 +33,6 @@ const state = {
   result: null,
   results: { breath: null, pulse: null },
   resultTaps: { breath: 0, pulse: 0 },
-  resultDurations: { breath: null, pulse: null },
   recordDogFilter: '',
   recordTypeFilter: '',
   recordSortColumn: 'time',
@@ -59,7 +58,7 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
-const { hydrateStaticIcons, labelWithIcon, setIconOnlyButton, setLabelWithIcon } = window.DoggyLogIcons;
+const { hydrateStaticIcons, icon, labelWithIcon, setIconOnlyButton, setLabelWithIcon } = window.DoggyLogIcons;
 
 const els = {
   connectionStatus: $('connectionStatus'),
@@ -89,6 +88,7 @@ const els = {
   modeButtons: $('modeButtons'),
   meterStage: $('meterStage'),
   tapButton: $('tapButton'),
+  tapButtonIcon: $('tapButtonIcon'),
   tapButtonMain: $('tapButtonMain'),
   tapButtonSub: $('tapButtonSub'),
   newMeasurementButton: $('newMeasurementButton'),
@@ -414,8 +414,7 @@ function renderMeasurementControls() {
 
 function renderContextOptions() {
   const selected = selectedContexts();
-  const defaultIds = accountDefaultContextIds();
-  const options = sortByDefaultThenName(visibleContexts(), (context) => defaultIds.includes(context._id));
+  const options = sortedVisibleContexts();
   els.contextInput.value = selected.filter((context) => options.some((item) => item._id === context)).join(', ');
   els.contextButtons.innerHTML = options.map((context) => pillButton({
     value: context._id,
@@ -424,10 +423,15 @@ function renderContextOptions() {
     deleteMode: false,
     deleteCandidate: '',
     attr: 'data-context',
-  })).join('');
+  })).join('') + '<button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen" data-icon-only="plus"></button>';
   els.contextButtons.querySelectorAll('[data-context]').forEach((button) => {
     button.addEventListener('click', () => handleContextClick(button.dataset.context).catch((error) => setMessage(error.message, true)));
   });
+  const addContextButton = els.contextButtons.querySelector('#addContextButton');
+  if (addContextButton) {
+    setIconOnlyButton(addContextButton, 'plus');
+    addContextButton.addEventListener('click', () => addContextFromPrompt().catch((error) => setMessage(error.message, true)));
+  }
 }
 
 function selectedContexts() {
@@ -444,20 +448,22 @@ function setSelectedContexts(contexts) {
 }
 
 function renderLocationOptions() {
-  const defaultLocationId = accountDefaultLocationId();
-  const options = sortByDefaultThenName(visibleLocations(), (location) => location._id === defaultLocationId);
+  const options = sortedVisibleLocations();
   if (!options.some((location) => location._id === state.location)) state.location = options[0]?._id || '';
-  els.locationButtons.innerHTML = options.map((location) => pillButton({
+  els.locationButtons.innerHTML = options.map((location) => optionButton({
     value: location._id,
     label: location.name,
     active: location._id === state.location,
-    deleteMode: false,
-    deleteCandidate: '',
     attr: 'data-location',
-  })).join('');
+  })).join('') + '<button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen" data-icon-only="plus"></button>';
   els.locationButtons.querySelectorAll('[data-location]').forEach((button) => {
     button.addEventListener('click', () => handleLocationClick(button.dataset.location).catch((error) => setMessage(error.message, true)));
   });
+  const addLocationButton = els.locationButtons.querySelector('#addLocationButton');
+  if (addLocationButton) {
+    setIconOnlyButton(addLocationButton, 'plus');
+    addLocationButton.addEventListener('click', () => addLocationFromPrompt().catch((error) => setMessage(error.message, true)));
+  }
 }
 
 function pillButton({ value, label, active, deleteMode, deleteCandidate, attr }) {
@@ -470,6 +476,15 @@ function pillButton({ value, label, active, deleteMode, deleteCandidate, attr })
   return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${iconName ? labelWithIcon(iconName, label) : escapeHtml(label)}</button>`;
 }
 
+function optionButton({ value, label, active, attr }) {
+  const classes = ['choice-button'];
+  const iconName = pillIcon(attr);
+  if (iconName) classes.push('has-ui-icon');
+  if (active) classes.push('is-active');
+  const content = iconName ? labelWithIcon(iconName, label) : escapeHtml(label);
+  return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${content}</button>`;
+}
+
 function isTaxonomyVisible(item) {
   return item.visible !== false;
 }
@@ -478,12 +493,43 @@ function visibleDogs() {
   return state.dogs.filter(isTaxonomyVisible);
 }
 
+function sortedVisibleDogs() {
+  const defaultDogId = accountDefaultDogId();
+  return sortByDefaultThenName(visibleDogs(), (dog) => dog._id === defaultDogId);
+}
+
 function visibleLocations() {
   return state.locationPresets.filter(isTaxonomyVisible);
 }
 
 function visibleContexts() {
   return state.contextPresets.filter(isTaxonomyVisible);
+}
+
+function sortedVisibleLocations() {
+  const defaultLocationId = accountDefaultLocationId();
+  return sortByDefaultThenName(visibleLocations(), (location) => location._id === defaultLocationId);
+}
+
+function sortedVisibleContexts() {
+  const defaultIds = accountDefaultContextIds();
+  return sortByDefaultThenName(visibleContexts(), (context) => defaultIds.includes(context._id));
+}
+
+function sortedLocationOptions(selected) {
+  return sortByDefaultThenName(
+    state.locationPresets.filter((item) => isTaxonomyVisible(item) || item._id === selected),
+    (item) => item._id === accountDefaultLocationId(),
+  );
+}
+
+function sortedContextOptions(selected) {
+  const selectedValues = Array.isArray(selected) ? selected : [selected];
+  const defaultIds = accountDefaultContextIds();
+  return sortByDefaultThenName(
+    state.contextPresets.filter((item) => isTaxonomyVisible(item) || selectedValues.includes(item._id)),
+    (item) => defaultIds.includes(item._id),
+  );
 }
 
 function sortByDefaultThenName(items, isDefault) {
@@ -541,7 +587,6 @@ function resetMeasurement() {
   setResetConfirmation(false);
   state.results[state.measureType] = null;
   state.resultTaps[state.measureType] = 0;
-  state.resultDurations[state.measureType] = null;
   state.result = null;
   state.taps = 0;
   state.measuring = false;
@@ -564,7 +609,7 @@ function setResetConfirmation() {
 }
 
 function discardMeasurementLabel() {
-  return state.measureType === 'breath' ? 'Atemzüge verwerfen' : 'Pulse verwerfen';
+  return state.measureType === 'breath' ? 'Atemzüge verwerfen' : 'Pulsschläge verwerfen';
 }
 
 function cancelMeasurementLabel() {
@@ -581,8 +626,6 @@ function resetMeasurementRun() {
   state.finishTimer = null;
   state.result = state.results[state.measureType];
   state.taps = state.result !== null ? state.resultTaps[state.measureType] : 0;
-  const savedDuration = state.resultDurations[state.measureType];
-  if (state.result !== null && savedDuration !== null) state.duration = savedDuration;
   els.tapButton.disabled = state.result !== null;
   els.newMeasurementButton.hidden = true;
   els.saveButton.disabled = !hasSavedMeasurement();
@@ -594,8 +637,6 @@ function syncMeasurementSelection() {
   if (state.measuring) return;
   state.result = state.results[state.measureType];
   state.taps = state.result !== null ? state.resultTaps[state.measureType] : 0;
-  const savedDuration = state.resultDurations[state.measureType];
-  if (state.result !== null && savedDuration !== null) state.duration = savedDuration;
   els.tapButton.disabled = state.result !== null;
   els.newMeasurementButton.hidden = state.result === null;
   els.saveButton.disabled = !hasSavedMeasurement();
@@ -605,7 +646,6 @@ function startMeasurement() {
   setResetConfirmation(false);
   state.results[state.measureType] = null;
   state.resultTaps[state.measureType] = 0;
-  state.resultDurations[state.measureType] = null;
   resetMeasurementRun();
   state.measuring = true;
   state.startedAt = Date.now();
@@ -646,7 +686,6 @@ function finishMeasurement(measuredDuration = state.duration) {
   state.result = Math.round((state.taps / effectiveDuration) * 60);
   state.results[state.measureType] = state.result;
   state.resultTaps[state.measureType] = state.taps;
-  state.resultDurations[state.measureType] = effectiveDuration;
   if (!els.measuredAtInput.value) els.measuredAtInput.value = new Date().toISOString();
   els.tapButton.disabled = true;
   els.newMeasurementButton.hidden = false;
@@ -663,7 +702,8 @@ function pulseFeedback() {
 }
 
 function updateMeterView() {
-  const label = state.measureType === 'breath' ? 'Atemzug' : 'Puls';
+  const label = state.measureType === 'breath' ? 'Atemzug' : 'Pulsschlag';
+  const iconName = state.measureType === 'breath' ? 'wind' : 'heart-pulse';
   const savedResult = state.results[state.measureType];
   if (!state.measuring) {
     state.result = savedResult;
@@ -671,16 +711,17 @@ function updateMeterView() {
   }
   const countLabel = state.measureType === 'breath'
     ? (state.taps === 1 ? 'Atemzug' : 'Atemzüge')
-    : (state.taps === 1 ? 'Puls' : 'Pulse');
-  const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Pulse/min';
+    : (state.taps === 1 ? 'Pulsschlag' : 'Pulsschläge');
+  const unit = state.measureType === 'breath' ? 'Atemzüge/min' : 'Pulsschläge/min';
   const elapsed = state.startedAt ? Math.min((Date.now() - state.startedAt) / 1000, state.duration) : 0;
   const progress = state.duration > 0 ? Math.min(100, Math.max(0, (elapsed / state.duration) * 100)) : 0;
   const remaining = Math.max(0, Math.ceil(state.duration - elapsed));
   const liveRate = state.measuring && elapsed > 0 ? Math.round((state.taps / elapsed) * 60) : null;
 
   els.measurementProgressFill.style.width = `${state.measuring ? progress : (state.result === null ? 0 : 100)}%`;
-  els.meterStatus.textContent = state.measuring ? `${remaining} Sekunden` : (state.result === null ? 'Bereit' : 'Fertig');
+  els.meterStatus.textContent = state.measuring ? `${remaining} Sekunden` : (state.result === null ? `${state.duration} Sekunden` : 'Fertig');
   els.meterCount.textContent = `${state.taps} ${countLabel} gezählt`;
+  els.tapButtonIcon.innerHTML = icon(iconName);
   els.tapButtonMain.textContent = state.measuring ? `${label} tippen` : (state.result === null ? 'Messung starten' : 'Messung beendet');
   els.tapButtonSub.textContent = state.measuring ? 'Tap registriert sofort' : (state.result === null ? 'Erster Tap startet Timer' : 'Ergebnis speichern oder neue Messung starten');
   els.measurementResult.value = state.result !== null ? `${state.result} ${unit}` : (liveRate !== null ? `${liveRate} ${unit}` : unit);
@@ -694,15 +735,6 @@ function savedMeasurementType() {
   if (state.results.breath !== null && state.results.pulse !== null) return 'both';
   if (state.results.pulse !== null) return 'pulse';
   return 'breath';
-}
-
-function savedDuration() {
-  return state.resultDurations.breath || state.resultDurations.pulse || state.duration;
-}
-
-function durationForEntry(entry, type) {
-  const typed = type === 'pulse' ? entry.pulse_duration_seconds : entry.breath_duration_seconds;
-  return Number(typed || entry.duration_seconds || 15);
 }
 
 async function loadEntries() {
@@ -1445,7 +1477,7 @@ async function deleteSetupToken(tokenId) {
 }
 
 function renderDogSelect() {
-  const options = visibleDogs();
+  const options = sortedVisibleDogs();
   const selected = els.dogSelect.value || accountDefaultDogId();
   const selectedDog = options.find((dog) => dog._id === selected) || options[0];
   const hasMultipleDogs = options.length > 1;
@@ -1453,16 +1485,14 @@ function renderDogSelect() {
 
   els.dogSelectLabel.hidden = !hasMultipleDogs;
   els.dogNameDisplay.hidden = hasMultipleDogs;
-  els.dogNameDisplay.querySelector('strong').textContent = selectedDog?.name || 'Mein Hund';
+  els.dogNameDisplay.querySelector('strong').innerHTML = `${icon('paw')}<span>${escapeHtml(selectedDog?.name || 'Mein Hund')}</span>`;
   els.dogSelect.value = selectedId;
 
   els.dogButtons.innerHTML = options.map((dog) => (
-    pillButton({
+    optionButton({
       value: dog._id,
       label: dog.name || 'Mein Hund',
       active: dog._id === selectedId,
-      deleteMode: false,
-      deleteCandidate: '',
       attr: 'data-dog',
     })
   )).join('');
@@ -1475,15 +1505,16 @@ function renderDogSelect() {
 }
 
 function renderRecordFilters() {
-  const hasMultipleDogs = state.dogs.length > 1;
+  const dogs = sortedVisibleDogs();
+  const hasMultipleDogs = dogs.length > 1;
   const selectedDog = state.recordDogFilter;
   els.recordDogFilter.hidden = !hasMultipleDogs;
   els.recordSingleDogName.hidden = hasMultipleDogs;
-  els.recordSingleDogName.textContent = state.dogs[0]?.name || 'Mein Hund';
-  els.recordDogFilter.innerHTML = '<option value="">Alle Hunde</option>' + state.dogs.map((dog) => (
+  els.recordSingleDogName.textContent = dogs[0]?.name || 'Mein Hund';
+  els.recordDogFilter.innerHTML = '<option value="">Alle Hunde</option>' + dogs.map((dog) => (
     `<option value="${escapeHtml(dog._id)}" ${dog._id === selectedDog ? 'selected' : ''}>${escapeHtml(dog.name || 'Mein Hund')}</option>`
   )).join('');
-  if (!hasMultipleDogs || (selectedDog && !state.dogs.some((dog) => dog._id === selectedDog))) {
+  if (!hasMultipleDogs || (selectedDog && !dogs.some((dog) => dog._id === selectedDog))) {
     state.recordDogFilter = '';
     els.recordDogFilter.value = '';
   }
@@ -1501,10 +1532,12 @@ function entryTime(entry) {
 }
 
 function visibleEntries() {
-  const hasMultipleDogs = state.dogs.length > 1;
+  const visibleDogIds = new Set(visibleDogs().map((dog) => dog._id));
+  const hasMultipleDogs = visibleDogIds.size > 1;
   const entries = state.entries.filter((entry) => {
     const type = entryType(entry);
-    return (!hasMultipleDogs || !state.recordDogFilter || entry.dog_id === state.recordDogFilter)
+    return visibleDogIds.has(entry.dog_id)
+      && (!hasMultipleDogs || !state.recordDogFilter || entry.dog_id === state.recordDogFilter)
       && (!state.recordTypeFilter || type === state.recordTypeFilter);
   });
   entries.sort((a, b) => {
@@ -1554,18 +1587,10 @@ function sortRecords(column) {
 
 function measurementTypeLabel(value) {
   return {
-    breath: 'Atemfrequenz',
-    pulse: 'Pulse',
-    both: 'Beides',
-  }[value] || value || 'Atemfrequenz';
-}
-
-function entryDurationValue(entry, durationType) {
-  const typed = durationType === 'pulse' ? entry.pulse_duration_seconds : entry.breath_duration_seconds;
-  if (typed !== null && typed !== undefined && typed !== '') return typed;
-  const type = entryType(entry);
-  if (type === durationType || type === 'both') return entry.duration_seconds ?? '';
-  return '';
+    breath: 'Atmung',
+    pulse: 'Puls',
+    both: 'Atmung + Puls',
+  }[value] || value || 'Atmung';
 }
 
 function csvCell(value) {
@@ -1631,9 +1656,6 @@ async function exportEntriesCsv() {
     'messart_anzeige',
     'modus',
     'modus_anzeige',
-    'dauer_sekunden',
-    'atem_dauer_sekunden',
-    'puls_dauer_sekunden',
     'atemfrequenz_pro_minute',
     'puls_pro_minute',
     'notizen',
@@ -1665,9 +1687,6 @@ async function exportEntriesCsv() {
       messart_anzeige: measurementTypeLabel(type),
       modus: entry.mode || '',
       modus_anzeige: modeLabel(type, entry.mode),
-      dauer_sekunden: entry.duration_seconds ?? '',
-      atem_dauer_sekunden: entryDurationValue(entry, 'breath'),
-      puls_dauer_sekunden: entryDurationValue(entry, 'pulse'),
       atemfrequenz_pro_minute: entry.breaths_per_minute ?? '',
       puls_pro_minute: entry.pulse_per_minute ?? '',
       notizen: entry.notes || entry.comment || '',
@@ -1719,7 +1738,7 @@ function renderEntries() {
     return;
   }
 
-  const hasDogColumn = state.dogs.length > 1;
+  const hasDogColumn = visibleDogs().length > 1;
   const rows = entries.map((entry) => {
     const type = entryType(entry);
     const context = contextSummary(entry);
@@ -1747,7 +1766,7 @@ function renderEntries() {
       <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}">
         ${hasDogColumn ? sortHeader('dog', 'Hund', 'paw') : ''}
         ${sortHeader('time', 'Zeit', 'clock')}
-        ${sortHeader('breath', 'Atemfrequenz', 'wind')}
+        ${sortHeader('breath', 'Atmung', 'wind')}
         ${sortHeader('pulse', 'Puls', 'heart-pulse')}
         ${sortHeader('mode', 'Modus', 'activity')}
         ${sortHeader('location', 'Ort', 'map-pin')}
@@ -1766,37 +1785,22 @@ function renderEntries() {
   });
 }
 
-function measurementChips(entry) {
-  const chips = [];
-  if (entry.breaths_per_minute !== null && entry.breaths_per_minute !== undefined && entry.breaths_per_minute !== '') {
-    chips.push(`<span class="chip">Atemfrequenz ${escapeHtml(entry.breaths_per_minute)}</span>`);
-  }
-  if (entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '') {
-    chips.push(`<span class="chip">Pulse ${escapeHtml(entry.pulse_per_minute)}</span>`);
-  }
-  return chips.join('') || '<span class="chip">Messung</span>';
-}
-
 function formatRecordValue(value) {
   if (value === null || value === undefined || value === '') return '<span class="muted">-</span>';
   return `<strong>${escapeHtml(value)}</strong> <span class="muted">bpm</span>`;
-}
-
-function entryMeasurementTypes(type) {
-  if (type === 'both') return ['breath', 'pulse'];
-  return [type === 'pulse' ? 'pulse' : 'breath'];
 }
 
 function renderEntryHiddenField(field, value) {
   return `<input type="hidden" data-field="${field}" value="${escapeHtml(value ?? '')}">`;
 }
 
-function renderEntryPills(options, selected, attr, field, multi = false) {
+function renderEntryChoices(options, selected, attr, field, multi = false) {
   const selectedValues = Array.isArray(selected) ? selected : [selected];
+  const renderOption = multi ? pillButton : optionButton;
   return `
     ${renderEntryHiddenField(field, multi ? selectedValues.join(', ') : selectedValues[0])}
-    <div class="pill-grid" role="group">
-      ${options.map((option) => pillButton({
+    <div class="${multi ? 'pill-grid' : 'choice-grid'}" role="group">
+      ${options.map((option) => renderOption({
         value: option.value,
         label: option.label,
         active: selectedValues.includes(option.value),
@@ -1808,76 +1812,67 @@ function renderEntryPills(options, selected, attr, field, multi = false) {
   `;
 }
 
-function taxonomyEditorOptions(items, selected) {
-  const selectedValues = Array.isArray(selected) ? selected : [selected];
-  return items
-    .filter((item) => isTaxonomyVisible(item) || selectedValues.includes(item._id))
-    .map((item) => ({ value: item._id, label: item.name }));
+function entryDogOptions() {
+  return sortedVisibleDogs().map((dog) => ({ value: dog._id, label: dog.name || 'Mein Hund' }));
 }
 
-function renderEntryEditor(entry, type) {
+function entryLocationOptions(selected) {
+  return sortedLocationOptions(selected).map((item) => ({ value: item._id, label: item.name }));
+}
+
+function entryContextOptions(selected) {
+  return sortedContextOptions(selected).map((item) => ({ value: item._id, label: item.name }));
+}
+
+function renderEntryEditor(entry) {
   const entryContexts = Array.isArray(entry.context_ids) ? entry.context_ids : [];
-  const breathDuration = durationForEntry(entry, 'breath');
-  const pulseDuration = durationForEntry(entry, 'pulse');
-  const showDog = state.dogs.length > 1;
-  const selectedTypes = entryMeasurementTypes(type);
-  const selectedDuration = type === 'pulse' ? pulseDuration : breathDuration;
-  const dogValue = entry.dog_id || state.dogs[0]?._id || '';
+  const dogs = visibleDogs();
+  const showDog = dogs.length > 1;
+  const dogValue = entry.dog_id || dogs[0]?._id || '';
   const locationValue = entry.location_id || state.location || visibleLocations()[0]?._id || '';
 
   return `
     <div class="record-edit-form" data-entry-editor="${escapeHtml(entry._id)}">
       <button class="secondary-action record-back-button has-ui-icon" type="button" data-record-back>${labelWithIcon('arrow-left', 'Zurück')}</button>
-      <div class="choice-block">
-        <span class="control-title">Zeitpunkt</span>
-        <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
-      </div>
       ${showDog ? `
         <div class="choice-block">
           <span class="control-title">Hund</span>
-          ${renderEntryPills(
-            state.dogs.map((dog) => ({ value: dog._id, label: dog.name || 'Mein Hund' })),
+          ${renderEntryChoices(
+            entryDogOptions(),
             dogValue,
             'data-dog',
             'dog_id',
           )}
         </div>
-      ` : renderEntryHiddenField('dog_id', dogValue)}
+      ` : `
+        ${renderEntryHiddenField('dog_id', dogValue)}
+        <div class="dog-name">
+          <span class="control-title">Hund</span>
+          <strong class="has-ui-icon">${icon('paw')}<span>${escapeHtml(dogLabel(dogValue))}</span></strong>
+        </div>
+      `}
       <div class="choice-block">
-        <span class="control-title">Messung</span>
-        ${renderEntryHiddenField('measurement_type', type)}
-        <div class="big-switch" role="group" aria-label="Messart">
-          <button type="button" class="has-ui-icon ${selectedTypes.includes('breath') ? 'is-active' : ''}" data-edit-measure-type="breath">${labelWithIcon('wind', 'Atemfrequenz')}</button>
-          <button type="button" class="has-ui-icon ${selectedTypes.includes('pulse') ? 'is-active' : ''}" data-edit-measure-type="pulse">${labelWithIcon('heart-pulse', 'Pulse')}</button>
+        <span class="control-title">Zeitpunkt</span>
+        <div class="record-input-row record-input-row--compact">
+          ${icon('clock')}
+          <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
         </div>
       </div>
       <div class="choice-block">
-        <span class="control-title">Dauer</span>
-        ${renderEntryHiddenField('breath_duration_seconds', breathDuration)}
-        ${renderEntryHiddenField('pulse_duration_seconds', pulseDuration)}
-        <div class="segmented" role="group" aria-label="Messdauer">
-          <button type="button" class="has-ui-icon ${selectedDuration === 15 ? 'is-active' : ''}" data-edit-duration="15">${labelWithIcon('clock', '15 Sekunden')}</button>
-          <button type="button" class="has-ui-icon ${selectedDuration === 30 ? 'is-active' : ''}" data-edit-duration="30">${labelWithIcon('clock', '30 Sekunden')}</button>
-        </div>
-      </div>
-      <div class="meter-stage record-value-editor manual-record-editor">
-        <div class="meter-meta">
-          <span>Werte bearbeiten</span>
-          <span>Manuelle Eingabe</span>
-        </div>
-        <label ${selectedTypes.includes('breath') ? '' : 'hidden'}>
-          Atemfrequenz
+        <span class="control-title">Atemfrequenz</span>
+        <label class="record-value-field">
+          ${icon('wind')}
           <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
+          <span class="muted">Atemzüge/min</span>
         </label>
-        <label ${selectedTypes.includes('pulse') ? '' : 'hidden'}>
-          Pulse
+      </div>
+      <div class="choice-block">
+        <span class="control-title">Pulsfrequenz</span>
+        <label class="record-value-field">
+          ${icon('heart-pulse')}
           <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
+          <span class="muted">Pulsschläge/min</span>
         </label>
-        <output class="result">${selectedTypes.map((selectedType) => {
-          const value = selectedType === 'pulse' ? entry.pulse_per_minute : entry.breaths_per_minute;
-          const unit = selectedType === 'pulse' ? 'Pulse/min' : 'Atemzüge/min';
-          return value !== null && value !== undefined && value !== '' ? `${escapeHtml(value)} ${unit}` : unit;
-        }).join(' · ')}</output>
       </div>
       <div class="choice-block">
         <span class="control-title">Modus</span>
@@ -1890,8 +1885,8 @@ function renderEntryEditor(entry, type) {
       </div>
       <div class="choice-block">
         <span class="control-title">Ort</span>
-        ${renderEntryPills(
-          taxonomyEditorOptions(state.locationPresets, locationValue),
+        ${renderEntryChoices(
+          entryLocationOptions(locationValue),
           locationValue,
           'data-location',
           'location_id',
@@ -1899,8 +1894,8 @@ function renderEntryEditor(entry, type) {
       </div>
       <div class="choice-block">
         <span class="control-title">Kontext</span>
-        ${renderEntryPills(
-          taxonomyEditorOptions(state.contextPresets, entryContexts),
+        ${renderEntryChoices(
+          entryContextOptions(entryContexts),
           entryContexts,
           'data-context',
           'context_ids',
@@ -1923,20 +1918,6 @@ function entryEditorField(editor, field) {
   return editor.querySelector(`[data-field="${field}"]`);
 }
 
-function editorSelectedTypes(editor) {
-  return entryMeasurementTypes(entryEditorField(editor, 'measurement_type')?.value);
-}
-
-function setEntryEditorMeasurementType(editor, type) {
-  entryEditorField(editor, 'measurement_type').value = type;
-  const selected = entryMeasurementTypes(type);
-  editor.querySelectorAll('[data-edit-measure-type]').forEach((button) => {
-    button.classList.toggle('is-active', selected.includes(button.dataset.editMeasureType));
-  });
-  editor.querySelector('[data-field="breaths_per_minute"]')?.closest('label')?.toggleAttribute('hidden', !selected.includes('breath'));
-  editor.querySelector('[data-field="pulse_per_minute"]')?.closest('label')?.toggleAttribute('hidden', !selected.includes('pulse'));
-}
-
 function queueEntryEditorSave(editor) {
   queueEntrySave(editor.dataset.entryEditor);
 }
@@ -1955,8 +1936,7 @@ function renderRecordEditor() {
     els.recordEditorPage.onclick = null;
     return;
   }
-  const type = entryType(entry);
-  els.recordEditorPage.innerHTML = renderEntryEditor(entry, type);
+  els.recordEditorPage.innerHTML = renderEntryEditor(entry);
   els.recordEditorPage.onclick = handleRecordEditorBackdrop;
   els.recordEditorPage.querySelector('[data-record-back]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
   els.recordEditorPage.querySelector('[data-record-save]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
@@ -1992,27 +1972,6 @@ function renderRecordEditor() {
         input.value = value;
         editor.querySelectorAll(`[data-edit-pill="${field}"]`).forEach((item) => item.classList.toggle('is-active', item === button));
       }
-      queueEntryEditorSave(editor);
-    });
-  });
-  els.recordEditorPage.querySelectorAll('[data-edit-measure-type]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const editor = button.closest('[data-entry-editor]');
-      const current = entryEditorField(editor, 'measurement_type').value;
-      const clicked = button.dataset.editMeasureType;
-      const next = current === clicked ? clicked : (current === 'both' ? clicked : 'both');
-      setEntryEditorMeasurementType(editor, next);
-      queueEntryEditorSave(editor);
-    });
-  });
-  els.recordEditorPage.querySelectorAll('[data-edit-duration]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const editor = button.closest('[data-entry-editor]');
-      const duration = button.dataset.editDuration;
-      editorSelectedTypes(editor).forEach((selectedType) => {
-        entryEditorField(editor, `${selectedType}_duration_seconds`).value = duration;
-      });
-      editor.querySelectorAll('[data-edit-duration]').forEach((item) => item.classList.toggle('is-active', item === button));
       queueEntryEditorSave(editor);
     });
   });
@@ -2052,21 +2011,15 @@ async function saveEntryEdit(id) {
       : (input.multiple ? Array.from(input.selectedOptions).map((option) => option.value) : input.value);
     return [input.dataset.field, value];
   }));
-  const dog = state.dogs.find((item) => item._id === values.dog_id);
-  const measurementType = ['breath', 'pulse', 'both'].includes(values.measurement_type) ? values.measurement_type : 'breath';
   const object = {
     measured_at: values.measured_at,
     dog_id: values.dog_id || '',
-    measurement_type: measurementType,
     mode: values.mode,
-    duration_seconds: Number(values.breath_duration_seconds || values.pulse_duration_seconds || entry.duration_seconds || 15),
-    breath_duration_seconds: measurementType === 'pulse' ? null : values.breath_duration_seconds,
-    pulse_duration_seconds: measurementType === 'breath' ? null : values.pulse_duration_seconds,
     location_id: values.location_id,
     context_ids: values.context_ids,
     notes: values.notes,
-    breaths_per_minute: measurementType === 'pulse' ? null : values.breaths_per_minute,
-    pulse_per_minute: measurementType === 'breath' ? null : values.pulse_per_minute,
+    breaths_per_minute: values.breaths_per_minute,
+    pulse_per_minute: values.pulse_per_minute,
   };
 
   const result = await api('object-update', {
@@ -2089,11 +2042,7 @@ async function saveEntry(event) {
   const object = {
     measured_at: els.measuredAtInput.value || new Date().toISOString(),
     dog_id: dog?._id || '',
-    measurement_type: savedMeasurementType(),
     mode: state.mode,
-    duration_seconds: savedDuration(),
-    breath_duration_seconds: state.results.breath !== null ? state.resultDurations.breath : null,
-    pulse_duration_seconds: state.results.pulse !== null ? state.resultDurations.pulse : null,
     location_id: state.location,
     context_ids: selectedContexts(),
     notes: els.notesInput.value,

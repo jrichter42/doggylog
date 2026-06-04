@@ -31,11 +31,7 @@ final class Storage
         'vitals' => [
             'measured_at' => ['type' => 'datetime-local', 'default' => ''],
             'dog_id' => ['type' => 'string', 'default' => ''],
-            'measurement_type' => ['type' => 'string', 'default' => 'breath'],
             'mode' => ['type' => 'string', 'default' => 'resting'],
-            'duration_seconds' => ['type' => 'number', 'default' => 15],
-            'breath_duration_seconds' => ['type' => 'number', 'default' => null],
-            'pulse_duration_seconds' => ['type' => 'number', 'default' => null],
             'breaths_per_minute' => ['type' => 'number', 'default' => null],
             'pulse_per_minute' => ['type' => 'number', 'default' => null],
             'location_id' => ['type' => 'string', 'default' => ''],
@@ -249,6 +245,9 @@ final class Storage
         if ($type === 'vitals' && array_key_exists('notes', $payload)) {
             unset($updated['comment']);
         }
+        if ($type === 'vitals') {
+            unset($updated['measurement_type'], $updated['duration_seconds'], $updated['breath_duration_seconds'], $updated['pulse_duration_seconds']);
+        }
         $updated['_revision'] = (int) ($current['_revision'] ?? 0) + 1;
         $updated['_modified'] = $this->now();
         $updated['_modifiedBy'] = $username;
@@ -373,28 +372,6 @@ final class Storage
                 }
 
                 $normalized[$field] = $number;
-                continue;
-            }
-
-            if (in_array($field, ['duration_seconds', 'breath_duration_seconds', 'pulse_duration_seconds'], true)) {
-                if ($value === '' || $value === null) {
-                    $normalized[$field] = $field === 'duration_seconds' ? 15 : null;
-                    continue;
-                }
-                $duration = (int) $value;
-                if (!in_array($duration, [15, 30], true)) {
-                    throw new InvalidArgumentException('Measurement duration is invalid.');
-                }
-                $normalized[$field] = $duration;
-                continue;
-            }
-
-            if ($field === 'measurement_type') {
-                $typeValue = trim((string) $value);
-                if (!in_array($typeValue, ['breath', 'pulse', 'both'], true)) {
-                    throw new InvalidArgumentException('Measurement type is invalid.');
-                }
-                $normalized[$field] = $typeValue;
                 continue;
             }
 

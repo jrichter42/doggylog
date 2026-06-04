@@ -234,6 +234,16 @@ main {
   margin-top: 1rem;
 }
 
+#loginEmailForm {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+#loginEmailForm .muted {
+  margin: 0;
+}
+
 .workspace {
   display: grid;
   gap: 0.85rem;
@@ -268,6 +278,8 @@ main {
 .dog-name {
   display: grid;
   gap: 0.35rem;
+  justify-items: start;
+  text-align: left;
 }
 
 .dog-name strong {
@@ -301,6 +313,7 @@ main {
 .segmented,
 .mode-grid,
 .location-grid,
+.choice-grid,
 .pill-grid {
   display: grid;
   gap: 0.45rem;
@@ -368,15 +381,18 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.choice-grid,
 .pill-grid {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .big-switch button,
 .segmented button,
 .mode-grid button,
 .location-grid button,
+.choice-button,
 .pill-button {
   font-weight: 850;
 }
@@ -391,8 +407,7 @@ main {
   gap: 0.35rem;
 }
 
-#dogButtons .pill-button,
-#locationButtons .pill-button {
+.choice-button {
   min-height: 48px;
   border-radius: 8px;
   padding: 0.75rem 0.9rem;
@@ -410,19 +425,28 @@ main {
 
 .big-switch button {
   position: relative;
-  padding-right: 2.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+  text-align: center;
 }
 
 .big-switch button.has-ui-icon {
-  padding-left: 0.8rem;
+  justify-content: center;
+}
+
+.big-switch button .ui-icon {
+  flex: 0 0 auto;
 }
 
 .big-switch button.has-result::after {
   content: "\2713";
-  position: absolute;
-  right: 0.85rem;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  transform: none;
+  margin-left: 0.2rem;
   color: var(--ok);
   font-size: 2rem;
   font-weight: 1000;
@@ -505,17 +529,11 @@ main {
   margin-bottom: 0.65rem;
 }
 
-.record-export-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.55rem;
-}
-
 .record-tools {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
-  flex: 1 1 100%;
+  flex: 1 1 auto;
 }
 
 .record-tools select,
@@ -558,6 +576,18 @@ main {
   overflow: hidden;
 }
 
+.tap-button-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.tap-button-icon .ui-icon {
+  width: clamp(2.2rem, 10vw, 3.4rem);
+  height: clamp(2.2rem, 10vw, 3.4rem);
+}
+
 .tap-button small {
   color: var(--muted);
   font-size: 1rem;
@@ -596,6 +626,10 @@ main {
   font-weight: 900;
 }
 
+.meter-stage > .danger-action {
+  margin-top: 0.15rem;
+}
+
 @keyframes tap-hit {
   0% { transform: scale(0.992); background: #103d3b; }
   60% { transform: scale(1.003); background: #124743; }
@@ -609,12 +643,17 @@ main {
 
 .result {
   display: block;
-  min-height: 3.8rem;
+  min-height: 4.1rem;
   color: var(--ink);
-  font-size: clamp(2.15rem, 11vw, 4.2rem);
+  font-size: clamp(1.7rem, 8vw, 3.5rem);
   font-weight: 1000;
-  line-height: 1;
+  line-height: 1.05;
   text-align: center;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  margin-top: 0.2rem;
 }
 
 .save-panel,
@@ -654,6 +693,16 @@ main {
 .icon-button .ui-icon {
   width: 1.15rem;
   height: 1.15rem;
+}
+
+#addLocationButton,
+#addContextButton {
+  color: var(--accent);
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  flex: 0 0 34px;
 }
 
 label {
@@ -841,7 +890,7 @@ textarea {
 .records-table {
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--panel-soft);
 }
 
@@ -897,14 +946,9 @@ textarea {
 .record-row.entry {
   gap: 0;
   border: 0;
-  border-bottom: 1px solid var(--line);
   border-radius: 0;
   padding: 0;
   background: transparent;
-}
-
-.record-row.entry:last-child {
-  border-bottom: 0;
 }
 
 .record-row.is-editing {
@@ -913,6 +957,12 @@ textarea {
 
 .record-row .entry-toggle {
   padding: 0.75rem;
+  border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.record-row:last-child .entry-toggle {
+  border-bottom: 0;
 }
 
 .record-time,
@@ -971,6 +1021,8 @@ textarea {
 
 .record-back-button {
   justify-self: start;
+  min-width: 0;
+  width: auto;
 }
 
 .record-editor-actions {
@@ -1160,6 +1212,37 @@ textarea {
   min-width: 0;
 }
 
+.record-value-field {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.record-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.record-input-row input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.record-input-row--compact input {
+  flex: 0 1 auto;
+  width: min(100%, 18rem);
+}
+
+.record-value-field input {
+  flex: 0 1 8.5ch;
+  width: 8.5ch;
+  min-width: 7.5ch;
+  max-width: 10ch;
+  font-size: 1.28rem;
+  font-weight: 900;
+}
+
 .taxonomy-edit {
   gap: 0.8rem;
   grid-template-columns: minmax(12rem, 22rem) minmax(0, 1fr);
@@ -1235,4 +1318,14 @@ footer {
 
 .account-card .section-head {
   margin-bottom: 0;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(125, 211, 252, 0.18);
+  align-items: end;
+}
+
+.account-card .section-head h2 {
+  font-size: 1.4rem;
+  font-weight: 1000;
+  line-height: 1.05;
+  color: var(--ink);
 }
