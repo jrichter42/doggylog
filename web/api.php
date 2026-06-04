@@ -490,12 +490,12 @@ try {
             $admin = require_permission($auth, 'manage_users');
             $body = Http::readJsonBody();
             require_csrf($auth, $body);
-            $username = (string) ($body['username'] ?? '');
-            if ($username === '') {
-                Http::json(['ok' => false, 'error' => 'Username is required'], 400);
+            $targetUser = (string) ($body['id'] ?? $body['user_id'] ?? $body['username'] ?? '');
+            if ($targetUser === '') {
+                Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
             }
 
-            $setup = $auth->createSetupToken($username, (string) $admin['id']);
+            $setup = $auth->createSetupToken($targetUser, (string) $admin['id']);
             Http::json(['ok' => true, 'setup' => $setup]);
             break;
 

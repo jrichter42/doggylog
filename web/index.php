@@ -208,6 +208,7 @@ $configWarnings = array_map(
             <div class="account-setup-row">
               <button id="selfSetupButton" type="button" data-icon="key">Passkey auf diesem Gerät hinzufügen</button>
             </div>
+            <div class="account-passkeys" id="accountPasskeys"></div>
             <p class="setup-link" id="selfSetupResult" hidden></p>
           </section>
 

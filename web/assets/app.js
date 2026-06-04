@@ -45,6 +45,7 @@ const state = {
   taxonomySaveTimers: new Map(),
   userSaveTimers: new Map(),
   userSetupLinks: new Map(),
+  userSetupTokens: [],
   showHiddenDogs: false,
   showHiddenLocations: false,
   showHiddenContexts: false,
@@ -111,6 +112,7 @@ const els = {
   entriesList: $('entriesList'),
   recordEditorPage: $('recordEditorPage'),
   selfSetupButton: $('selfSetupButton'),
+  accountPasskeys: $('accountPasskeys'),
   selfSetupResult: $('selfSetupResult'),
   logoutButton: $('logoutButton'),
   accountProfileForm: $('accountProfileForm'),
@@ -787,6 +789,32 @@ function renderAccountProfile() {
   els.accountProfileForm.elements.username.value = user.username || '';
   els.accountProfileForm.elements.display_name.value = user.display_name || '';
   els.accountProfileForm.elements.email.value = user.email || '';
+  renderAccountPasskeys();
+}
+
+function renderAccountPasskeys() {
+  if (!els.accountPasskeys) return;
+  const passkeys = Array.isArray(state.account?.passkeys) ? state.account.passkeys : [];
+  if (passkeys.length === 0) {
+    els.accountPasskeys.innerHTML = '<p class="muted">Noch kein Passkey.</p>';
+    return;
+  }
+
+  els.accountPasskeys.innerHTML = passkeys.map((passkey, index) => `
+    <article class="entry account-subitem">
+      <div class="account-subitem-main">
+        <strong>Passkey ${index + 1}</strong>
+        <span class="muted">Erstellt: ${escapeHtml(formatDate(passkey.created_at))}</span>
+        <span class="muted">Zuletzt genutzt: ${escapeHtml(formatDate(passkey.last_used_at))}</span>
+      </div>
+      <button class="delete-entry has-ui-icon" type="button" data-delete-passkey="${escapeHtml(passkey.id)}">
+        ${labelWithIcon('trash-2', 'Löschen')}
+      </button>
+    </article>
+  `).join('');
+  els.accountPasskeys.querySelectorAll('[data-delete-passkey]').forEach((button) => {
+    button.addEventListener('click', () => deleteAccountPasskey(button.dataset.deletePasskey).catch((error) => setMessage(error.message, true)));
+  });
 }
 
 function renderAccountDogs() {
@@ -1227,6 +1255,7 @@ async function loadUsers() {
   const result = await api('admin-users');
   const currentUserId = state.status?.auth?.user?.id || '';
   const users = result.users || [];
+  state.userSetupTokens = Array.isArray(result.setup_tokens) ? result.setup_tokens : [];
   const visibleUsers = state.showDisabledUsers ? users : users.filter((user) => user.enabled);
   const disabledCount = users.filter((user) => !user.enabled).length;
   if (els.userSectionTitle) els.userSectionTitle.textContent = `Alle Benutzer (${visibleUsers.length})`;
@@ -1239,6 +1268,7 @@ async function loadUsers() {
     return `
       <form class="user-row user-edit" data-user-id="${escapeHtml(user.id)}">
         <strong class="user-edit-title">${escapeHtml(user.username || 'Benutzer')}</strong>
+        <span class="muted">${escapeHtml(String(user.credential_count || 0))} Passkeys</span>
         <div class="user-edit-fields">
           <label>
             <span class="control-title">Benutzername</span>
@@ -1259,14 +1289,21 @@ async function loadUsers() {
             <input name="manage_users" type="checkbox" value="1" ${canManageUsers ? 'checked' : ''} ${permissionLocked ? 'disabled' : ''}>
             Kann Benutzer verwalten
           </label>
+          <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}">
+            ${labelWithIcon('link', 'Setup-Link erstellen')}
+          </button>
           <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
             ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
           </button>
         </div>
+        <div class="user-setup-links" data-user-setup-links="${escapeHtml(user.id)}"></div>
         <p class="setup-link" data-user-setup-link="${escapeHtml(user.id)}" ${setupUrl ? '' : 'hidden'}></p>
       </form>
     `;
   }).join('');
+  els.userList.querySelectorAll('[data-user-setup-links]').forEach((element) => {
+    renderUserSetupTokens(element, element.dataset.userSetupLinks);
+  });
   els.userList.querySelectorAll('[data-user-setup-link]').forEach((element) => {
     const url = state.userSetupLinks.get(element.dataset.userSetupLink) || '';
     if (url) renderSetupLink(element, url);
@@ -1285,6 +1322,32 @@ async function loadUsers() {
   els.userList.querySelectorAll('[data-user-enabled]').forEach((input) => {
     input.addEventListener('click', () => updateUserEnabled(input).catch((error) => setMessage(error.message, true)));
   });
+  els.userList.querySelectorAll('[data-user-create-setup]').forEach((button) => {
+    button.addEventListener('click', () => createUserSetupLink(button).catch((error) => setMessage(error.message, true)));
+  });
+  els.userList.querySelectorAll('[data-delete-setup-token]').forEach((button) => {
+    button.addEventListener('click', () => deleteSetupToken(button.dataset.deleteSetupToken).catch((error) => setMessage(error.message, true)));
+  });
+}
+
+function renderUserSetupTokens(element, userId) {
+  const tokens = state.userSetupTokens.filter((token) => token.user_id === userId);
+  if (tokens.length === 0) {
+    element.innerHTML = '';
+    return;
+  }
+  element.innerHTML = tokens.map((token) => `
+    <article class="entry account-subitem">
+      <div class="account-subitem-main">
+        <strong>Setup-Link</strong>
+        <span class="muted">Erstellt: ${escapeHtml(formatDate(token.created_at))}</span>
+        <span class="muted">Läuft ab: ${escapeHtml(formatDate(token.expires_at))}</span>
+      </div>
+      <button class="delete-entry has-ui-icon" type="button" data-delete-setup-token="${escapeHtml(token.id)}">
+        ${labelWithIcon('trash-2', 'Löschen')}
+      </button>
+    </article>
+  `).join('');
 }
 
 function queueUserSave(form) {
@@ -1329,6 +1392,56 @@ async function updateUserEnabled(input) {
   } finally {
     input.disabled = false;
   }
+}
+
+async function createUserSetupLink(button) {
+  const userId = button.dataset.userCreateSetup;
+  if (!userId) return;
+  button.disabled = true;
+  try {
+    const result = await api('admin-create-setup-token', {
+      method: 'POST',
+      body: { id: userId },
+    });
+    const url = result.setup?.setup_url || '';
+    if (url) state.userSetupLinks.set(userId, url);
+    if (result.setup?.id) {
+      state.userSetupTokens = state.userSetupTokens
+        .filter((token) => token.id !== result.setup.id)
+        .concat(result.setup);
+    }
+    const target = els.userList.querySelector(`[data-user-setup-link="${cssEscape(userId)}"]`);
+    if (target) renderSetupLink(target, url);
+    const list = els.userList.querySelector(`[data-user-setup-links="${cssEscape(userId)}"]`);
+    if (list) renderUserSetupTokens(list, userId);
+    setMessage('Setup-Link erstellt.');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteAccountPasskey(credentialId) {
+  if (!credentialId) return;
+  if (!window.confirm('Passkey löschen?')) return;
+  const result = await api('account-delete-passkey', {
+    method: 'POST',
+    body: { credential_id: credentialId },
+  });
+  state.account = result.account || state.account;
+  renderAccountView();
+  setMessage('Passkey gelöscht.');
+}
+
+async function deleteSetupToken(tokenId) {
+  if (!tokenId) return;
+  if (!window.confirm('Setup-Link löschen?')) return;
+  const result = await api('admin-delete-setup-token', {
+    method: 'POST',
+    body: { token_id: tokenId },
+  });
+  state.userSetupTokens = Array.isArray(result.setup_tokens) ? result.setup_tokens : [];
+  await loadUsers();
+  setMessage('Setup-Link gelöscht.');
 }
 
 function renderDogSelect() {
