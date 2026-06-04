@@ -285,37 +285,6 @@ final class Storage
         return $deleted;
     }
 
-    public function assertUserDataRenameAvailable(string $oldUsername, string $newUsername): void
-    {
-        $this->assertUsername($oldUsername);
-        $this->assertUsername($newUsername);
-        if (strcasecmp($oldUsername, $newUsername) === 0) {
-            return;
-        }
-
-        $target = $this->userPath($newUsername);
-        if (file_exists($target)) {
-            throw new InvalidArgumentException('User data folder already exists.');
-        }
-    }
-
-    public function renameUserData(string $oldUsername, string $newUsername): void
-    {
-        $this->assertUserDataRenameAvailable($oldUsername, $newUsername);
-        if (strcasecmp($oldUsername, $newUsername) === 0) {
-            return;
-        }
-
-        $source = $this->userPath($oldUsername);
-        if (!is_dir($source)) {
-            return;
-        }
-
-        if (!rename($source, $this->userPath($newUsername))) {
-            throw new InvalidArgumentException('Could not rename user data folder.');
-        }
-    }
-
     private function dataPath(): string
     {
         return $this->basePath . '/data';
@@ -506,8 +475,8 @@ final class Storage
 
     private function assertUsername(string $username): void
     {
-        if ($username === '' || preg_match('/^[A-Za-z0-9_.@-]{2,64}$/', $username) !== 1) {
-            throw new InvalidArgumentException('Invalid username.');
+        if ($username === '' || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $username) !== 1) {
+            throw new InvalidArgumentException('Invalid user ID.');
         }
     }
 

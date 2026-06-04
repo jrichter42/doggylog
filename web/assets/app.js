@@ -778,17 +778,17 @@ async function saveAccountProfileForm() {
 
 async function loadUsers() {
   const result = await api('admin-users');
-  const currentUsername = state.status?.auth?.user?.username || '';
+  const currentUserId = state.status?.auth?.user?.id || '';
   els.userList.innerHTML = (result.users || []).map((user) => `
-    <div class="user-row" data-user-row="${escapeHtml(user.username)}">
+    <div class="user-row" data-user-row="${escapeHtml(user.id)}">
       <strong>${escapeHtml(user.username)} · ${escapeHtml(user.display_name || 'Kein Anzeigename')}</strong>
       <span class="muted">${escapeHtml(user.email || 'Keine E-Mail-Adresse')}</span>
       <div class="user-row-actions">
         <label class="checkbox-line user-permission-line">
-          <input type="checkbox" data-user-permission="${escapeHtml(user.username)}" ${user.permissions.includes('manage_users') ? 'checked' : ''} ${user.protected_admin ? 'disabled' : ''}>
+          <input type="checkbox" data-user-permission="${escapeHtml(user.id)}" ${user.permissions.includes('manage_users') ? 'checked' : ''} ${user.protected_admin ? 'disabled' : ''}>
           Kann Benutzer verwalten
         </label>
-        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.username)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.username === currentUsername ? 'disabled' : ''}>
+        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
           ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
         </button>
       </div>
@@ -809,12 +809,12 @@ async function updateUserEnabled(input) {
     await api('admin-update-user', {
       method: 'POST',
       body: {
-        username: input.dataset.userEnabled,
+        id: input.dataset.userEnabled,
         enabled,
       },
     });
     await loadUsers();
-    if (input.dataset.userEnabled === state.status?.auth?.user?.username) await refresh();
+    if (input.dataset.userEnabled === state.status?.auth?.user?.id) await refresh();
     setMessage('Benutzerstatus gespeichert.');
   } finally {
     input.disabled = false;
@@ -828,12 +828,12 @@ async function updateUserPermissions(input) {
     await api('admin-update-user', {
       method: 'POST',
       body: {
-        username: input.dataset.userPermission,
+        id: input.dataset.userPermission,
         permissions,
       },
     });
     await loadUsers();
-    if (input.dataset.userPermission === state.status?.auth?.user?.username) await refresh();
+    if (input.dataset.userPermission === state.status?.auth?.user?.id) await refresh();
     setMessage('Benutzerrechte gespeichert.');
   } finally {
     input.disabled = false;
