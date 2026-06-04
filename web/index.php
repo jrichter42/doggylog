@@ -229,7 +229,6 @@ $configWarnings = array_map(
               <h2 id="locationSectionTitle">Orte</h2>
             </div>
             <button class="primary account-add-button" id="locationCreateButton" type="button" data-icon="plus">Ort hinzuf&uuml;gen</button>
-            <div class="default-summary" id="defaultLocationSummary"></div>
             <label class="checkbox-line hidden-taxonomy-toggle">
               <input id="showHiddenLocations" type="checkbox">
               Ausgeblendete anzeigen <span id="hiddenLocationCount"></span>
@@ -242,7 +241,6 @@ $configWarnings = array_map(
               <h2 id="contextSectionTitle">Kontexte</h2>
             </div>
             <button class="primary account-add-button" id="contextCreateButton" type="button" data-icon="plus">Kontext hinzuf&uuml;gen</button>
-            <div class="default-summary" id="defaultContextSummary"></div>
             <label class="checkbox-line hidden-taxonomy-toggle">
               <input id="showHiddenContexts" type="checkbox">
               Ausgeblendete anzeigen <span id="hiddenContextCount"></span>

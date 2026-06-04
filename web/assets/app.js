@@ -46,6 +46,11 @@ const state = {
   showHiddenDogs: false,
   showHiddenLocations: false,
   showHiddenContexts: false,
+  accountListOrder: {
+    dogs: [],
+    locations: [],
+    contexts: [],
+  },
   messageTimer: null,
 };
 
@@ -115,13 +120,11 @@ const els = {
   locationCreateButton: $('locationCreateButton'),
   locationSectionTitle: $('locationSectionTitle'),
   showHiddenLocations: $('showHiddenLocations'),
-  defaultLocationSummary: $('defaultLocationSummary'),
   hiddenLocationCount: $('hiddenLocationCount'),
   locationList: $('locationList'),
   contextCreateButton: $('contextCreateButton'),
   contextSectionTitle: $('contextSectionTitle'),
   showHiddenContexts: $('showHiddenContexts'),
-  defaultContextSummary: $('defaultContextSummary'),
   hiddenContextCount: $('hiddenContextCount'),
   contextList: $('contextList'),
   adminPanel: $('adminPanel'),
@@ -404,8 +407,9 @@ function renderMeasurementControls() {
 }
 
 function renderContextOptions() {
-  const options = visibleContexts();
   const selected = selectedContexts();
+  const defaultIds = accountDefaultContextIds();
+  const options = sortByDefaultThenName(visibleContexts(), (context) => defaultIds.includes(context._id));
   els.contextInput.value = selected.filter((context) => options.some((item) => item._id === context)).join(', ');
   els.contextButtons.innerHTML = options.map((context) => pillButton({
     value: context._id,
@@ -434,7 +438,8 @@ function setSelectedContexts(contexts) {
 }
 
 function renderLocationOptions() {
-  const options = visibleLocations();
+  const defaultLocationId = accountDefaultLocationId();
+  const options = sortByDefaultThenName(visibleLocations(), (location) => location._id === defaultLocationId);
   if (!options.some((location) => location._id === state.location)) state.location = options[0]?._id || '';
   els.locationButtons.innerHTML = options.map((location) => pillButton({
     value: location._id,
@@ -482,6 +487,48 @@ function sortByDefaultThenName(items, isDefault) {
     const byName = String(left.name || '').localeCompare(String(right.name || ''), 'de', { sensitivity: 'base' });
     return byName || String(left._id || '').localeCompare(String(right._id || ''));
   });
+}
+
+function accountListItems(type, includeHidden) {
+  if (type === 'dogs') return includeHidden ? state.dogs : visibleDogs();
+  if (type === 'locations') return includeHidden ? state.locationPresets : visibleLocations();
+  return includeHidden ? state.contextPresets : visibleContexts();
+}
+
+function defaultMatcher(type) {
+  if (type === 'dogs') {
+    const defaultId = accountDefaultDogId();
+    return (item) => item._id === defaultId;
+  }
+  if (type === 'locations') {
+    const defaultId = accountDefaultLocationId();
+    return (item) => item._id === defaultId;
+  }
+  const defaultIds = accountDefaultContextIds();
+  return (item) => defaultIds.includes(item._id);
+}
+
+function resetAccountListOrder(type) {
+  const includeHidden = type === 'dogs'
+    ? state.showHiddenDogs
+    : (type === 'locations' ? state.showHiddenLocations : state.showHiddenContexts);
+  state.accountListOrder[type] = sortByDefaultThenName(accountListItems(type, includeHidden), defaultMatcher(type)).map((item) => item._id);
+}
+
+function resetAccountListOrders() {
+  resetAccountListOrder('dogs');
+  resetAccountListOrder('locations');
+  resetAccountListOrder('contexts');
+}
+
+function orderedAccountList(type, includeHidden) {
+  const items = accountListItems(type, includeHidden);
+  const byId = new Map(items.map((item) => [item._id, item]));
+  const order = state.accountListOrder[type].filter((id) => byId.has(id));
+  const known = new Set(order);
+  const appended = items.filter((item) => !known.has(item._id)).map((item) => item._id);
+  state.accountListOrder[type] = order.concat(appended);
+  return state.accountListOrder[type].map((id) => byId.get(id)).filter(Boolean);
 }
 
 function resetMeasurement() {
@@ -708,6 +755,8 @@ async function loadAccountView() {
   state.account = result.account || null;
   await ensureDefaultDogSaved();
   await ensureDefaultLocationSaved();
+  syncHiddenItemPrefs();
+  resetAccountListOrders();
   renderAccountView();
   if (!els.adminPanel.hidden || !els.userAdminPanel.hidden) await loadUsers();
 }
@@ -726,6 +775,13 @@ function currentAccountUser() {
   return state.account?.user || state.status?.auth?.user || {};
 }
 
+function syncHiddenItemPrefs() {
+  const user = currentAccountUser();
+  state.showHiddenDogs = user.show_hidden_dogs === true;
+  state.showHiddenLocations = user.show_hidden_locations === true;
+  state.showHiddenContexts = user.show_hidden_contexts === true;
+}
+
 function renderAccountProfile() {
   const user = currentAccountUser();
   if (!els.accountProfileForm) return;
@@ -737,7 +793,7 @@ function renderAccountProfile() {
 function renderAccountDogs() {
   if (!els.dogList) return;
   const defaultId = accountDefaultDogId();
-  const dogs = sortByDefaultThenName(state.showHiddenDogs ? state.dogs : visibleDogs(), (dog) => dog._id === defaultId);
+  const dogs = orderedAccountList('dogs', state.showHiddenDogs);
   els.showHiddenDogs.checked = state.showHiddenDogs;
   renderDefaultDogSummary();
   renderAccountObjectCounts();
@@ -746,29 +802,34 @@ function renderAccountDogs() {
     return;
   }
 
-  els.dogList.innerHTML = dogs.map((dog) => `
-    <form class="entry dog-edit" data-dog-id="${escapeHtml(dog._id)}" data-revision="${dog._revision}">
-      <strong class="dog-edit-title">${escapeHtml(dog.name || 'Mein Hund')}</strong>
-      <label>
-        <span class="control-title">Name</span>
-        <input name="name" value="${escapeHtml(dog.name || 'Mein Hund')}" data-dog-name-input="${escapeHtml(dog._id)}" required>
-      </label>
-      <label>
-        <span class="control-title">Notizen</span>
-        <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
-      </label>
-      <div class="entry-actions">
-        <label class="checkbox-line user-permission-line">
-          <input type="checkbox" data-default-dog="${escapeHtml(dog._id)}" ${dog._id === defaultId ? 'checked disabled' : ''}>
-          Standard
+  const visibleDogCount = visibleDogs().length;
+  els.dogList.innerHTML = dogs.map((dog) => {
+    const visible = isTaxonomyVisible(dog);
+    const visibleLocked = visible && visibleDogCount <= 1;
+    return `
+      <form class="entry dog-edit" data-dog-id="${escapeHtml(dog._id)}" data-revision="${dog._revision}">
+        <strong class="dog-edit-title">${escapeHtml(dog.name || 'Mein Hund')}</strong>
+        <label>
+          <span class="control-title">Name</span>
+          <input name="name" value="${escapeHtml(dog.name || 'Mein Hund')}" data-dog-name-input="${escapeHtml(dog._id)}" required>
         </label>
-        <label class="checkbox-line user-permission-line">
-          <input type="checkbox" data-toggle-dog-visible="${escapeHtml(dog._id)}" data-revision="${dog._revision}" ${isTaxonomyVisible(dog) ? 'checked' : ''}>
-          Sichtbar
+        <label>
+          <span class="control-title">Notizen</span>
+          <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
         </label>
-      </div>
-    </form>
-  `).join('');
+        <div class="entry-actions">
+          <label class="checkbox-line user-permission-line">
+            <input type="checkbox" data-default-dog="${escapeHtml(dog._id)}" ${dog._id === defaultId ? 'checked disabled' : ''}>
+            Standard
+          </label>
+          <label class="checkbox-line user-permission-line${visibleLocked ? ' is-disabled' : ''}">
+            <input type="checkbox" data-toggle-dog-visible="${escapeHtml(dog._id)}" data-revision="${dog._revision}" ${visible ? 'checked' : ''} ${visibleLocked ? 'disabled' : ''}>
+            Sichtbar
+          </label>
+        </div>
+      </form>
+    `;
+  }).join('');
 
   els.dogList.querySelectorAll('.dog-edit').forEach((form) => {
     form.addEventListener('submit', (event) => {
@@ -866,9 +927,9 @@ function renderDefaultDogSummary() {
 function renderAccountObjectCounts() {
   if (els.dogSectionTitle) els.dogSectionTitle.textContent = `Hunde (${visibleDogs().length})`;
   if (els.hiddenDogCount) els.hiddenDogCount.textContent = `(${state.dogs.length - visibleDogs().length})`;
-  if (els.locationSectionTitle) els.locationSectionTitle.textContent = `Orte (${visibleLocations().length})`;
+  if (els.locationSectionTitle) els.locationSectionTitle.textContent = `Orte (${visibleLocations().length}) - Standard: ${defaultLocationName()}`;
   if (els.hiddenLocationCount) els.hiddenLocationCount.textContent = `(${state.locationPresets.length - visibleLocations().length})`;
-  if (els.contextSectionTitle) els.contextSectionTitle.textContent = `Kontexte (${visibleContexts().length})`;
+  if (els.contextSectionTitle) els.contextSectionTitle.textContent = `Kontexte (${visibleContexts().length}) - Standard: ${defaultContextNames()}`;
   if (els.hiddenContextCount) els.hiddenContextCount.textContent = `(${state.contextPresets.length - visibleContexts().length})`;
 }
 
@@ -904,31 +965,24 @@ async function ensureDefaultLocationSaved() {
   await saveAccountDefaults({ default_location_id: options[0]._id });
 }
 
-function renderDefaultLocationSummary() {
+function defaultLocationName() {
   const defaultId = accountDefaultLocationId();
   const defaultLocation = state.locationPresets.find((location) => location._id === defaultId);
-  els.defaultLocationSummary.innerHTML = `
-    <span class="control-title">Standard</span>
-    <strong>${escapeHtml(defaultLocation?.name || 'Kein Ort')}</strong>
-  `;
+  return defaultLocation?.name || 'Kein Ort';
 }
 
-function renderDefaultContextSummary() {
-  const defaultNames = accountDefaultContextIds()
+function defaultContextNames() {
+  return accountDefaultContextIds()
     .map((id) => state.contextPresets.find((context) => context._id === id)?.name || '')
-    .filter(Boolean);
-  els.defaultContextSummary.innerHTML = `
-    <span class="control-title">Standard</span>
-    <strong>${escapeHtml(defaultNames.join(', ') || 'Kein Kontext')}</strong>
-  `;
+    .filter(Boolean)
+    .join(', ') || 'Kein Kontext';
 }
 
 function renderAccountLocationSettings() {
   if (!els.locationList) return;
   const defaultId = accountDefaultLocationId();
-  const locations = sortByDefaultThenName(state.showHiddenLocations ? state.locationPresets : visibleLocations(), (location) => location._id === defaultId);
+  const locations = orderedAccountList('locations', state.showHiddenLocations);
   els.showHiddenLocations.checked = state.showHiddenLocations;
-  renderDefaultLocationSummary();
   renderAccountObjectCounts();
   if (locations.length === 0) {
     els.locationList.innerHTML = '<p class="muted">Noch kein Ort.</p>';
@@ -938,7 +992,6 @@ function renderAccountLocationSettings() {
   els.locationList.innerHTML = locations.map((location) => `
     <form class="entry taxonomy-edit" data-taxonomy-type="locations" data-taxonomy-id="${escapeHtml(location._id)}" data-revision="${location._revision}">
       <label>
-        <span class="control-title">Name</span>
         <input name="name" value="${escapeHtml(location.name || '')}" required>
       </label>
       <div class="entry-actions">
@@ -968,9 +1021,8 @@ function renderAccountLocationSettings() {
 function renderAccountContextSettings() {
   if (!els.contextList) return;
   const defaultIds = accountDefaultContextIds();
-  const contexts = sortByDefaultThenName(state.showHiddenContexts ? state.contextPresets : visibleContexts(), (context) => defaultIds.includes(context._id));
+  const contexts = orderedAccountList('contexts', state.showHiddenContexts);
   els.showHiddenContexts.checked = state.showHiddenContexts;
-  renderDefaultContextSummary();
   renderAccountObjectCounts();
   if (contexts.length === 0) {
     els.contextList.innerHTML = '<p class="muted">Noch kein Kontext.</p>';
@@ -982,7 +1034,6 @@ function renderAccountContextSettings() {
     return `
       <form class="entry taxonomy-edit" data-taxonomy-type="contexts" data-taxonomy-id="${escapeHtml(context._id)}" data-revision="${context._revision}">
         <label>
-          <span class="control-title">Name</span>
           <input name="name" value="${escapeHtml(context.name || '')}" required>
         </label>
         <div class="entry-actions">
@@ -1044,8 +1095,7 @@ async function saveAccountTaxonomyForm(form) {
   form.dataset.revision = result.object?._revision || form.dataset.revision;
   const listName = type === 'locations' ? 'locationPresets' : 'contextPresets';
   state[listName] = state[listName].map((item) => (item._id === id ? result.object : item));
-  if (type === 'locations') renderDefaultLocationSummary();
-  if (type === 'contexts') renderDefaultContextSummary();
+  if (type === 'locations' || type === 'contexts') renderAccountObjectCounts();
   renderMeasurementControls();
   renderEntries();
   setMessage(type === 'locations' ? 'Ort gespeichert.' : 'Kontext gespeichert.');
@@ -1134,6 +1184,14 @@ async function saveAccountDefaults(patch) {
   const result = await api('account-update', { method: 'POST', body: patch });
   state.account = result.account || null;
   if (state.status?.auth) state.status.auth.user = result.user || state.account?.user || state.status.auth.user;
+}
+
+async function saveHiddenItemPrefs() {
+  await saveAccountDefaults({
+    show_hidden_dogs: state.showHiddenDogs,
+    show_hidden_locations: state.showHiddenLocations,
+    show_hidden_contexts: state.showHiddenContexts,
+  });
 }
 
 async function toggleTaxonomyVisible(type, id, revision, visible) {
@@ -2101,15 +2159,21 @@ els.addContextButton.addEventListener('click', () => addContextFromPrompt().catc
 els.addLocationButton.addEventListener('click', () => addLocationFromPrompt().catch((error) => setMessage(error.message, true)));
 els.showHiddenDogs.addEventListener('change', () => {
   state.showHiddenDogs = els.showHiddenDogs.checked;
+  resetAccountListOrder('dogs');
   renderAccountDogs();
+  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.showHiddenContexts.addEventListener('change', () => {
   state.showHiddenContexts = els.showHiddenContexts.checked;
+  resetAccountListOrder('contexts');
   renderAccountContextSettings();
+  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.showHiddenLocations.addEventListener('change', () => {
   state.showHiddenLocations = els.showHiddenLocations.checked;
+  resetAccountListOrder('locations');
   renderAccountLocationSettings();
+  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.contextCreateButton.addEventListener('click', () => addContext(true).catch((error) => setMessage(error.message, true)));
 els.locationCreateButton.addEventListener('click', () => addLocation(true).catch((error) => setMessage(error.message, true)));
