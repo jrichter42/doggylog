@@ -24,10 +24,6 @@ const state = {
   location: '',
   contextPresets: [],
   locationPresets: [],
-  contextDeleteMode: false,
-  contextDeleteCandidate: '',
-  locationDeleteMode: false,
-  locationDeleteCandidate: '',
   emailLoginOffered: false,
   measuring: false,
   startedAt: 0,
@@ -74,7 +70,6 @@ const els = {
   measurementProgress: $('measurementProgress'),
   measurementProgressFill: $('measurementProgressFill'),
   recordsView: $('recordsView'),
-  swapMeasurementTypesButton: $('swapMeasurementTypesButton'),
   dogSelectLabel: $('dogSelectLabel'),
   dogSelect: $('dogSelect'),
   dogButtons: $('dogButtons'),
@@ -91,11 +86,9 @@ const els = {
   measuredAtInput: $('measuredAtInput'),
   locationButtons: $('locationButtons'),
   addLocationButton: $('addLocationButton'),
-  deleteLocationButton: $('deleteLocationButton'),
   contextInput: $('contextInput'),
   contextButtons: $('contextButtons'),
   addContextButton: $('addContextButton'),
-  deleteContextButton: $('deleteContextButton'),
   notesInput: $('notesInput'),
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
@@ -367,8 +360,6 @@ function renderMeasurementControls() {
     button.dataset.recorded = recorded ? 'true' : 'false';
     button.disabled = state.measuring;
   });
-  els.swapMeasurementTypesButton.disabled = state.measuring;
-
   if (!modes[state.measureType].some(([value]) => value === state.mode)) {
     state.mode = modes[state.measureType][0][0];
   }
@@ -401,19 +392,13 @@ function renderContextOptions() {
     value: context._id,
     label: context.name,
     active: selected.includes(context._id),
-    deleteMode: state.contextDeleteMode,
-    deleteCandidate: state.contextDeleteCandidate,
+    deleteMode: false,
+    deleteCandidate: '',
     attr: 'data-context',
   })).join('');
   els.contextButtons.querySelectorAll('[data-context]').forEach((button) => {
     button.addEventListener('click', () => handleContextClick(button.dataset.context).catch((error) => setMessage(error.message, true)));
   });
-  els.deleteContextButton.classList.toggle('is-active', state.contextDeleteMode);
-  setIconOnlyButton(
-    els.deleteContextButton,
-    state.contextDeleteMode ? 'check' : 'trash',
-    state.contextDeleteMode ? 'Löschmodus bestätigen' : 'Kontext löschen',
-  );
 }
 
 function selectedContexts() {
@@ -435,19 +420,13 @@ function renderLocationOptions() {
     value: location._id,
     label: location.name,
     active: location._id === state.location,
-    deleteMode: state.locationDeleteMode,
-    deleteCandidate: state.locationDeleteCandidate,
+    deleteMode: false,
+    deleteCandidate: '',
     attr: 'data-location',
   })).join('');
   els.locationButtons.querySelectorAll('[data-location]').forEach((button) => {
     button.addEventListener('click', () => handleLocationClick(button.dataset.location).catch((error) => setMessage(error.message, true)));
   });
-  els.deleteLocationButton.classList.toggle('is-active', state.locationDeleteMode);
-  setIconOnlyButton(
-    els.deleteLocationButton,
-    state.locationDeleteMode ? 'check' : 'trash',
-    state.locationDeleteMode ? 'Löschmodus bestätigen' : 'Ort löschen',
-  );
 }
 
 function pillButton({ value, label, active, deleteMode, deleteCandidate, attr }) {
@@ -516,16 +495,6 @@ function syncMeasurementSelection() {
   els.tapButton.disabled = state.result !== null;
   els.newMeasurementButton.hidden = state.result === null;
   els.saveButton.disabled = !hasSavedMeasurement();
-}
-
-function swapMeasurementTypes() {
-  setResetConfirmation(false);
-  if (state.measuring) return;
-  [state.results.breath, state.results.pulse] = [state.results.pulse, state.results.breath];
-  [state.resultTaps.breath, state.resultTaps.pulse] = [state.resultTaps.pulse, state.resultTaps.breath];
-  [state.resultDurations.breath, state.resultDurations.pulse] = [state.resultDurations.pulse, state.resultDurations.breath];
-  syncMeasurementSelection();
-  renderMeasurementControls();
 }
 
 function startMeasurement() {
@@ -1262,10 +1231,6 @@ function renderEntryEditor(entry, type) {
         ${renderEntryHiddenField('measurement_type', type)}
         <div class="big-switch" role="group" aria-label="Messart">
           <button type="button" class="has-ui-icon ${selectedTypes.includes('breath') ? 'is-active' : ''} ${entry.breaths_per_minute !== null && entry.breaths_per_minute !== undefined && entry.breaths_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="breath">${labelWithIcon('wind', 'Atemfrequenz')}</button>
-          <button class="swap-type-button" type="button" aria-label="Atemfrequenz und Puls tauschen" title="Atemfrequenz und Puls tauschen" data-edit-swap-types>
-            <span aria-hidden="true">&#11013;</span>
-            <span aria-hidden="true">&#10145;</span>
-          </button>
           <button type="button" class="has-ui-icon ${selectedTypes.includes('pulse') ? 'is-active' : ''} ${entry.pulse_per_minute !== null && entry.pulse_per_minute !== undefined && entry.pulse_per_minute !== '' ? 'has-result' : ''}" data-edit-measure-type="pulse">${labelWithIcon('heart-pulse', 'Pulse')}</button>
         </div>
       </div>
@@ -1433,20 +1398,6 @@ function renderRecordEditor() {
       editor.querySelectorAll('[data-edit-duration]').forEach((item) => item.classList.toggle('is-active', item === button));
       queueEntryEditorSave(editor);
     });
-  });
-  els.recordEditorPage.querySelector('[data-edit-swap-types]')?.addEventListener('click', () => {
-    const editor = els.recordEditorPage.querySelector('[data-entry-editor]');
-    const breathValue = entryEditorField(editor, 'breaths_per_minute').value;
-    const pulseValue = entryEditorField(editor, 'pulse_per_minute').value;
-    const breathDurationValue = entryEditorField(editor, 'breath_duration_seconds').value;
-    const pulseDurationValue = entryEditorField(editor, 'pulse_duration_seconds').value;
-    entryEditorField(editor, 'breaths_per_minute').value = pulseValue;
-    entryEditorField(editor, 'pulse_per_minute').value = breathValue;
-    entryEditorField(editor, 'breath_duration_seconds').value = pulseDurationValue;
-    entryEditorField(editor, 'pulse_duration_seconds').value = breathDurationValue;
-    const current = entryEditorField(editor, 'measurement_type').value;
-    setEntryEditorMeasurementType(editor, current === 'breath' ? 'pulse' : (current === 'pulse' ? 'breath' : 'both'));
-    queueEntryEditorSave(editor);
   });
 }
 
@@ -1708,7 +1659,6 @@ document.querySelectorAll('[data-measure-type]').forEach((button) => {
     renderMeasurementControls();
   });
 });
-els.swapMeasurementTypesButton.addEventListener('click', swapMeasurementTypes);
 document.querySelectorAll('[data-duration]').forEach((button) => {
   button.addEventListener('click', () => {
     setResetConfirmation(false);
@@ -1721,17 +1671,7 @@ document.querySelectorAll('[data-duration]').forEach((button) => {
   });
 });
 els.addContextButton.addEventListener('click', () => addContext().catch((error) => setMessage(error.message, true)));
-els.deleteContextButton.addEventListener('click', () => {
-  state.contextDeleteMode = !state.contextDeleteMode;
-  state.contextDeleteCandidate = '';
-  renderContextOptions();
-});
 els.addLocationButton.addEventListener('click', () => addLocation().catch((error) => setMessage(error.message, true)));
-els.deleteLocationButton.addEventListener('click', () => {
-  state.locationDeleteMode = !state.locationDeleteMode;
-  state.locationDeleteCandidate = '';
-  renderLocationOptions();
-});
 
 async function addContext() {
   const value = window.prompt('Neuer Kontext');
@@ -1758,46 +1698,15 @@ async function addLocation() {
 }
 
 async function handleContextClick(context) {
-  if (!state.contextDeleteMode) {
-    const selected = selectedContexts();
-    setSelectedContexts(selected.includes(context)
-      ? selected.filter((item) => item !== context)
-      : selected.concat(context));
-    renderContextOptions();
-    return;
-  }
-  if (state.contextDeleteCandidate !== context) {
-    state.contextDeleteCandidate = context;
-    renderContextOptions();
-    return;
-  }
-  const item = state.contextPresets.find((preset) => preset._id === context);
-  if (!item) return;
-  await api('object-delete', { method: 'POST', body: { type: 'contexts', id: item._id, base_revision: item._revision } });
-  state.contextPresets = state.contextPresets.filter((preset) => preset._id !== context);
-  setSelectedContexts(selectedContexts().filter((item) => item !== context));
-  state.contextDeleteCandidate = '';
+  const selected = selectedContexts();
+  setSelectedContexts(selected.includes(context)
+    ? selected.filter((item) => item !== context)
+    : selected.concat(context));
   renderContextOptions();
 }
 
 async function handleLocationClick(location) {
-  if (!state.locationDeleteMode) {
-    state.location = location;
-    renderLocationOptions();
-    return;
-  }
-  if (state.locationPresets.length <= 1) return;
-  if (state.locationDeleteCandidate !== location) {
-    state.locationDeleteCandidate = location;
-    renderLocationOptions();
-    return;
-  }
-  const item = state.locationPresets.find((preset) => preset._id === location);
-  if (!item) return;
-  await api('object-delete', { method: 'POST', body: { type: 'locations', id: item._id, base_revision: item._revision } });
-  state.locationPresets = state.locationPresets.filter((preset) => preset._id !== location);
-  if (state.location === location) state.location = state.locationPresets[0]?._id || '';
-  state.locationDeleteCandidate = '';
+  state.location = location;
   renderLocationOptions();
 }
 els.tapButton.addEventListener('click', registerTap);

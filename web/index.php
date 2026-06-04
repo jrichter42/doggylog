@@ -98,10 +98,6 @@ $configWarnings = array_map(
             <span class="control-title">Messung</span>
             <div class="big-switch" role="group" aria-label="Messart">
               <button type="button" class="is-active" data-measure-type="breath" data-icon="wind">Atemfrequenz</button>
-              <button class="swap-type-button" id="swapMeasurementTypesButton" type="button" aria-label="Atemfrequenz und Puls tauschen" title="Atemfrequenz und Puls tauschen">
-                <span aria-hidden="true">&#11013;</span>
-                <span aria-hidden="true">&#10145;</span>
-              </button>
               <button type="button" data-measure-type="pulse" data-icon="heart-pulse">Pulse</button>
             </div>
           </div>
@@ -142,7 +138,6 @@ $configWarnings = array_map(
                 <span class="control-title">Ort</span>
                 <div class="pill-actions">
                   <button class="icon-button compact" id="addLocationButton" type="button" aria-label="Ort hinzufuegen" title="Ort hinzufuegen" data-icon-only="plus"></button>
-                  <button class="icon-button compact" id="deleteLocationButton" type="button" aria-label="Ort loeschen" title="Ort loeschen" data-icon-only="trash"></button>
                 </div>
               </div>
               <div class="pill-grid" id="locationButtons" role="group" aria-label="Ort"></div>
@@ -152,7 +147,6 @@ $configWarnings = array_map(
                 <span class="control-title">Kontext</span>
                 <div class="pill-actions">
                   <button class="icon-button compact" id="addContextButton" type="button" aria-label="Kontext hinzufuegen" title="Kontext hinzufuegen" data-icon-only="plus"></button>
-                  <button class="icon-button compact" id="deleteContextButton" type="button" aria-label="Kontext loeschen" title="Kontext loeschen" data-icon-only="trash"></button>
                 </div>
               </div>
               <input id="contextInput" name="context" type="hidden">

@@ -353,7 +353,7 @@ main {
 }
 
 .big-switch {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .segmented {
@@ -408,25 +408,13 @@ main {
   color: #fda4af;
 }
 
-.big-switch button:not(.swap-type-button) {
+.big-switch button {
   position: relative;
   padding-right: 2.9rem;
 }
 
-.big-switch button:not(.swap-type-button).has-ui-icon {
+.big-switch button.has-ui-icon {
   padding-left: 0.8rem;
-}
-
-.swap-type-button {
-  display: grid;
-  gap: 0;
-  place-content: center;
-  min-height: 48px;
-  width: 48px;
-  padding: 0;
-  font-size: 1.05rem;
-  font-weight: 1000;
-  line-height: 1;
 }
 
 .big-switch button.has-result::after {
