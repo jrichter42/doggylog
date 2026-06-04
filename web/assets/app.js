@@ -45,6 +45,9 @@ const state = {
   recordSortDirection: 'desc',
   editingEntryId: null,
   saveTimers: new Map(),
+  accountProfileSaveTimer: null,
+  dogSaveTimers: new Map(),
+  messageTimer: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -107,7 +110,7 @@ const els = {
   selfSetupResult: $('selfSetupResult'),
   logoutButton: $('logoutButton'),
   accountProfileForm: $('accountProfileForm'),
-  dogCreateForm: $('dogCreateForm'),
+  dogCreateButton: $('dogCreateButton'),
   dogList: $('dogList'),
   adminPanel: $('adminPanel'),
   userAdminPanel: $('userAdminPanel'),
@@ -118,9 +121,17 @@ const els = {
 };
 
 function setMessage(text, isError = false) {
+  clearTimeout(state.messageTimer);
   els.authMessage.hidden = !text;
   els.authMessage.textContent = text || '';
   els.authMessage.style.borderColor = isError ? '#f04438' : '';
+  els.authMessage.classList.toggle('is-error', isError);
+  if (text) {
+    state.messageTimer = setTimeout(() => {
+      els.authMessage.hidden = true;
+      els.authMessage.textContent = '';
+    }, isError ? 5200 : 1600);
+  }
 }
 
 function csrf() {
@@ -693,47 +704,65 @@ function renderAccountDogs() {
 
   els.dogList.innerHTML = state.dogs.map((dog) => `
     <form class="entry dog-edit" data-dog-id="${escapeHtml(dog._id)}" data-revision="${dog._revision}">
+      <strong class="dog-edit-title">${escapeHtml(dog.name || 'Mein Hund')}</strong>
       <label>
-        Name
-        <input name="name" value="${escapeHtml(dog.name || 'Mein Hund')}" required>
+        <span class="control-title">Name</span>
+        <input name="name" value="${escapeHtml(dog.name || 'Mein Hund')}" data-dog-name-input="${escapeHtml(dog._id)}" required>
       </label>
       <label>
-        Notizen
+        <span class="control-title">Notizen</span>
         <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
       </label>
       <div class="entry-actions">
-        <button class="primary has-ui-icon" type="submit">${labelWithIcon('save', 'Speichern')}</button>
         <button class="delete-entry has-ui-icon" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">${labelWithIcon('trash', 'Löschen')}</button>
       </div>
     </form>
   `).join('');
 
   els.dogList.querySelectorAll('.dog-edit').forEach((form) => {
-    form.addEventListener('submit', (event) => saveAccountDog(event).catch((error) => setMessage(error.message, true)));
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveAccountDogForm(form).catch((error) => setMessage(error.message, true));
+    });
+    form.querySelectorAll('input, textarea').forEach((input) => {
+      input.addEventListener('input', () => queueAccountDogSave(form));
+      input.addEventListener('change', () => queueAccountDogSave(form));
+    });
   });
   els.dogList.querySelectorAll('[data-delete-dog]').forEach((button) => {
     button.addEventListener('click', () => deleteAccountDog(button.dataset.deleteDog, Number(button.dataset.revision)).catch((error) => setMessage(error.message, true)));
   });
 }
 
-async function saveAccountDog(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
+function queueAccountDogSave(form) {
+  const id = form.dataset.dogId;
+  clearTimeout(state.dogSaveTimers.get(id));
+  state.dogSaveTimers.set(id, setTimeout(() => saveAccountDogForm(form).catch((error) => setMessage(error.message, true)), 500));
+}
+
+async function saveAccountDogForm(form) {
   const data = new FormData(form);
-  await api('object-update', {
+  const name = String(data.get('name') || '').trim();
+  if (name === '') return;
+  const result = await api('object-update', {
     method: 'POST',
     body: {
       type: 'dogs',
       id: form.dataset.dogId,
       base_revision: Number(form.dataset.revision),
       object: {
-        name: data.get('name'),
+        name,
         notes: data.get('notes'),
       },
     },
   });
+  form.dataset.revision = result.object?._revision || form.dataset.revision;
+  const title = form.querySelector('.dog-edit-title');
+  if (title) title.textContent = result.object?.name || 'Mein Hund';
+  const deleteButton = form.querySelector('[data-delete-dog]');
+  if (deleteButton) deleteButton.dataset.revision = form.dataset.revision;
+  state.dogs = state.dogs.map((dog) => (dog._id === form.dataset.dogId ? result.object : dog));
   setMessage('Hund gespeichert.');
-  await loadDogs();
   renderMeasurementControls();
   renderEntries();
 }
@@ -748,9 +777,15 @@ async function deleteAccountDog(id, revision) {
   renderEntries();
 }
 
-async function saveAccountProfile(event) {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
+function queueAccountProfileSave() {
+  clearTimeout(state.accountProfileSaveTimer);
+  state.accountProfileSaveTimer = setTimeout(() => saveAccountProfileForm().catch((error) => setMessage(error.message, true)), 500);
+}
+
+async function saveAccountProfileForm() {
+  const formElement = els.accountProfileForm;
+  const form = new FormData(formElement);
+  if (String(form.get('username') || '').trim() === '') return;
   const result = await api('account-update', {
     method: 'POST',
     body: {
@@ -761,7 +796,7 @@ async function saveAccountProfile(event) {
   });
   state.account = result.account || null;
   if (state.status?.auth) state.status.auth.user = result.user || state.account?.user || state.status.auth.user;
-  renderAccountView();
+  renderShell();
   renderDogSelect();
   renderEntries();
   setMessage('Benutzerkonto gespeichert.');
@@ -769,6 +804,7 @@ async function saveAccountProfile(event) {
 
 async function loadUsers() {
   const result = await api('admin-users');
+  const currentUsername = state.status?.auth?.user?.username || '';
   els.userList.innerHTML = (result.users || []).map((user) => `
     <div class="user-row" data-user-row="${escapeHtml(user.username)}">
       <strong>${escapeHtml(user.username)} · ${escapeHtml(user.display_name || 'Kein Anzeigename')}</strong>
@@ -778,7 +814,7 @@ async function loadUsers() {
           <input type="checkbox" data-user-permission="${escapeHtml(user.username)}" ${user.permissions.includes('manage_users') ? 'checked' : ''} ${user.protected_admin ? 'disabled' : ''}>
           Kann Benutzer verwalten
         </label>
-        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.username)}" data-enabled="${user.enabled ? 'true' : 'false'}">
+        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.username)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.username === currentUsername ? 'disabled' : ''}>
           ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
         </button>
       </div>
@@ -1811,13 +1847,21 @@ els.logoutButton.addEventListener('click', async () => {
   await api('auth-logout', { method: 'POST', body: {} });
   window.location.href = './';
 });
-els.accountProfileForm.addEventListener('submit', (event) => saveAccountProfile(event).catch((error) => setMessage(error.message, true)));
-els.dogCreateForm.addEventListener('submit', async (event) => {
+els.accountProfileForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  const form = new FormData(event.currentTarget);
-  await api('object-create', { method: 'POST', body: { type: 'dogs', object: { name: form.get('name') } } });
-  event.currentTarget.reset();
+  saveAccountProfileForm().catch((error) => setMessage(error.message, true));
+});
+els.accountProfileForm.querySelectorAll('input').forEach((input) => {
+  input.addEventListener('input', queueAccountProfileSave);
+  input.addEventListener('change', queueAccountProfileSave);
+});
+els.dogCreateButton.addEventListener('click', async () => {
+  const result = await api('object-create', { method: 'POST', body: { type: 'dogs', object: {} } });
   await loadDogs();
+  renderAccountDogs();
+  const input = els.dogList.querySelector(`[data-dog-name-input="${cssEscape(result.object?._id || '')}"]`);
+  input?.focus();
+  input?.select();
   renderMeasurementControls();
   renderEntries();
 });

@@ -199,18 +199,17 @@ $configWarnings = array_map(
             </div>
             <form class="account-profile-form" id="accountProfileForm">
               <label>
-                Benutzername
+                <span class="control-title">Benutzername</span>
                 <input name="username" autocomplete="username" required>
               </label>
               <label>
-                Anzeigename
+                <span class="control-title">Anzeigename</span>
                 <input name="display_name" autocomplete="name">
               </label>
               <label>
-                E-Mail-Adresse
+                <span class="control-title">E-Mail-Adresse</span>
                 <input name="email" type="email" autocomplete="email">
               </label>
-              <button class="primary" type="submit" data-icon="save">Speichern</button>
             </form>
             <div class="account-setup-row">
               <button id="selfSetupButton" type="button" data-icon="key">Passkey auf diesem Gerät hinzufügen</button>
@@ -222,10 +221,7 @@ $configWarnings = array_map(
             <div class="section-head">
               <h2>Hunde</h2>
             </div>
-            <form class="inline-form" id="dogCreateForm">
-              <input name="name" placeholder="Hundename" autocomplete="off" required>
-              <button type="submit" data-icon="plus">Hund anlegen</button>
-            </form>
+            <button class="primary account-add-button" id="dogCreateButton" type="button" data-icon="plus">Hund hinzufügen</button>
             <div class="entries" id="dogList"></div>
           </section>
 
@@ -235,16 +231,25 @@ $configWarnings = array_map(
             </div>
             <form id="createUserForm" class="user-create-form">
               <div class="user-create-fields">
-                <input name="username" placeholder="Benutzername" autocomplete="off" required>
-                <input name="display_name" placeholder="Anzeigename" autocomplete="name">
-                <input name="email" type="email" placeholder="E-Mail-Adresse" autocomplete="email">
+                <label>
+                  <span class="control-title">Benutzername</span>
+                  <input name="username" autocomplete="off" required>
+                </label>
+                <label>
+                  <span class="control-title">Anzeigename</span>
+                  <input name="display_name" autocomplete="name">
+                </label>
+                <label>
+                  <span class="control-title">E-Mail-Adresse</span>
+                  <input name="email" type="email" autocomplete="email">
+                </label>
               </div>
               <div class="user-create-actions">
                 <label class="checkbox-line">
                   <input name="manage_users" type="checkbox" value="1">
                   Kann Benutzer verwalten
                 </label>
-                <button class="primary" type="submit" data-icon="user-plus">Benutzer anlegen</button>
+                <button class="primary" type="submit" data-icon="user-plus">Benutzer erstellen</button>
               </div>
             </form>
             <p class="setup-link" id="setupResult" hidden></p>

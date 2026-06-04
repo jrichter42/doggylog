@@ -176,6 +176,9 @@ final class AuthStore
             }
 
             if (array_key_exists('enabled', $patch)) {
+                if (!(bool) $patch['enabled'] && $updatedBy !== null && strcasecmp((string) ($user['username'] ?? ''), $updatedBy) === 0) {
+                    throw new InvalidArgumentException('You cannot deactivate your own user.');
+                }
                 $user['enabled'] = (bool) $patch['enabled'];
             }
 

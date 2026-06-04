@@ -201,6 +201,21 @@ main {
   padding: 0.8rem 1rem;
 }
 
+.message {
+  position: fixed;
+  top: calc(0.85rem + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 60;
+  margin: 0;
+  transform: translateX(-50%);
+  border-color: rgba(45, 212, 191, 0.65);
+  background: rgba(18, 59, 58, 0.96);
+}
+
+.message.is-error {
+  background: rgba(59, 17, 22, 0.96);
+}
+
 .notice span {
   display: block;
   color: var(--muted);
@@ -311,7 +326,7 @@ main {
 .connection-status {
   align-self: center;
   color: var(--muted);
-  font-size: 0.94rem;
+  font-size: 1.04rem;
   font-weight: 800;
   line-height: 1;
   text-align: right;
@@ -530,8 +545,9 @@ main {
 }
 
 .single-dog-name {
-  color: var(--muted);
+  color: var(--ink);
   align-self: center;
+  font-size: 1.05rem;
   font-weight: 900;
   min-height: 40px;
   padding: 0.45rem 0;
@@ -715,6 +731,10 @@ textarea {
 
 .account-setup-row .muted {
   margin: 0;
+}
+
+.account-add-button {
+  justify-self: start;
 }
 
 .checkbox-line {
@@ -1046,6 +1066,13 @@ textarea {
 
 .dog-edit {
   gap: 0.8rem;
+}
+
+.dog-edit-title {
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1.15;
 }
 
 footer {
