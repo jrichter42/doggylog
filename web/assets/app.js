@@ -43,9 +43,12 @@ const state = {
   accountProfileSaveTimer: null,
   dogSaveTimers: new Map(),
   taxonomySaveTimers: new Map(),
+  userSaveTimers: new Map(),
+  userSetupLinks: new Map(),
   showHiddenDogs: false,
   showHiddenLocations: false,
   showHiddenContexts: false,
+  showDisabledUsers: false,
   accountListOrder: {
     dogs: [],
     locations: [],
@@ -127,10 +130,11 @@ const els = {
   showHiddenContexts: $('showHiddenContexts'),
   hiddenContextCount: $('hiddenContextCount'),
   contextList: $('contextList'),
-  adminPanel: $('adminPanel'),
   userAdminPanel: $('userAdminPanel'),
-  createUserForm: $('createUserForm'),
-  setupResult: $('setupResult'),
+  userSectionTitle: $('userSectionTitle'),
+  userCreateButton: $('userCreateButton'),
+  showDisabledUsers: $('showDisabledUsers'),
+  disabledUserCount: $('disabledUserCount'),
   userList: $('userList'),
   viewTabs: document.querySelectorAll('[data-view-tab]'),
 };
@@ -755,16 +759,18 @@ async function loadAccountView() {
   state.account = result.account || null;
   await ensureDefaultDogSaved();
   await ensureDefaultLocationSaved();
-  syncHiddenItemPrefs();
+  state.showHiddenDogs = false;
+  state.showHiddenLocations = false;
+  state.showHiddenContexts = false;
+  state.showDisabledUsers = false;
   resetAccountListOrders();
   renderAccountView();
-  if (!els.adminPanel.hidden || !els.userAdminPanel.hidden) await loadUsers();
+  if (!els.userAdminPanel.hidden) await loadUsers();
 }
 
 function renderAccountView() {
   const user = state.account?.user || state.status?.auth?.user;
   const canManageUsers = user?.permissions?.includes('manage_users');
-  els.adminPanel.hidden = !canManageUsers;
   els.userAdminPanel.hidden = !canManageUsers;
   renderAccountProfile();
   renderAccountDogs();
@@ -773,13 +779,6 @@ function renderAccountView() {
 
 function currentAccountUser() {
   return state.account?.user || state.status?.auth?.user || {};
-}
-
-function syncHiddenItemPrefs() {
-  const user = currentAccountUser();
-  state.showHiddenDogs = user.show_hidden_dogs === true;
-  state.showHiddenLocations = user.show_hidden_locations === true;
-  state.showHiddenContexts = user.show_hidden_contexts === true;
 }
 
 function renderAccountProfile() {
@@ -818,12 +817,12 @@ function renderAccountDogs() {
           <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
         </label>
         <div class="entry-actions">
-          <label class="checkbox-line user-permission-line">
-            <input type="checkbox" data-default-dog="${escapeHtml(dog._id)}" ${dog._id === defaultId ? 'checked disabled' : ''}>
+          <label class="checkbox-line user-permission-line${dog._id === defaultId ? ' is-disabled' : ' is-editable'}">
+            <input class="${dog._id === defaultId ? 'is-checked' : ''}" type="checkbox" data-default-dog="${escapeHtml(dog._id)}" ${dog._id === defaultId ? 'checked disabled' : ''}>
             Standard
           </label>
-          <label class="checkbox-line user-permission-line${visibleLocked ? ' is-disabled' : ''}">
-            <input type="checkbox" data-toggle-dog-visible="${escapeHtml(dog._id)}" data-revision="${dog._revision}" ${visible ? 'checked' : ''} ${visibleLocked ? 'disabled' : ''}>
+          <label class="checkbox-line user-permission-line${visibleLocked ? ' is-disabled' : ' is-editable'}">
+            <input class="${visible ? 'is-checked' : ''} ${visibleLocked ? 'is-locked' : ''}" type="checkbox" data-toggle-dog-visible="${escapeHtml(dog._id)}" data-revision="${dog._revision}" ${visible ? 'checked' : ''} ${visibleLocked ? 'disabled' : ''}>
             Sichtbar
           </label>
         </div>
@@ -918,18 +917,15 @@ async function ensureDefaultDogSaved() {
 function renderDefaultDogSummary() {
   const defaultId = accountDefaultDogId();
   const defaultDog = state.dogs.find((dog) => dog._id === defaultId);
-  els.defaultDogSummary.innerHTML = `
-    <span class="control-title">Standard</span>
-    <strong>${escapeHtml(defaultDog?.name || 'Kein Hund')}</strong>
-  `;
+  els.defaultDogSummary.innerHTML = `<strong>${escapeHtml(defaultDog?.name || 'Kein Hund')}</strong>`;
 }
 
 function renderAccountObjectCounts() {
   if (els.dogSectionTitle) els.dogSectionTitle.textContent = `Hunde (${visibleDogs().length})`;
   if (els.hiddenDogCount) els.hiddenDogCount.textContent = `(${state.dogs.length - visibleDogs().length})`;
-  if (els.locationSectionTitle) els.locationSectionTitle.textContent = `Orte (${visibleLocations().length}) - Standard: ${defaultLocationName()}`;
+  if (els.locationSectionTitle) els.locationSectionTitle.textContent = `Orte (${visibleLocations().length})`;
   if (els.hiddenLocationCount) els.hiddenLocationCount.textContent = `(${state.locationPresets.length - visibleLocations().length})`;
-  if (els.contextSectionTitle) els.contextSectionTitle.textContent = `Kontexte (${visibleContexts().length}) - Standard: ${defaultContextNames()}`;
+  if (els.contextSectionTitle) els.contextSectionTitle.textContent = `Kontexte (${visibleContexts().length})`;
   if (els.hiddenContextCount) els.hiddenContextCount.textContent = `(${state.contextPresets.length - visibleContexts().length})`;
 }
 
@@ -965,19 +961,6 @@ async function ensureDefaultLocationSaved() {
   await saveAccountDefaults({ default_location_id: options[0]._id });
 }
 
-function defaultLocationName() {
-  const defaultId = accountDefaultLocationId();
-  const defaultLocation = state.locationPresets.find((location) => location._id === defaultId);
-  return defaultLocation?.name || 'Kein Ort';
-}
-
-function defaultContextNames() {
-  return accountDefaultContextIds()
-    .map((id) => state.contextPresets.find((context) => context._id === id)?.name || '')
-    .filter(Boolean)
-    .join(', ') || 'Kein Kontext';
-}
-
 function renderAccountLocationSettings() {
   if (!els.locationList) return;
   const defaultId = accountDefaultLocationId();
@@ -995,11 +978,11 @@ function renderAccountLocationSettings() {
         <input name="name" value="${escapeHtml(location.name || '')}" required>
       </label>
       <div class="entry-actions">
-        <label class="checkbox-line user-permission-line">
+        <label class="checkbox-line user-permission-line${location._id === defaultId ? ' is-disabled' : ' is-editable'}">
           <input type="checkbox" data-default-location="${escapeHtml(location._id)}" ${location._id === defaultId ? 'checked disabled' : ''}>
           Standard
         </label>
-        <label class="checkbox-line user-permission-line">
+        <label class="checkbox-line user-permission-line is-editable">
           <input type="checkbox" data-toggle-taxonomy-visible="locations" data-taxonomy-id="${escapeHtml(location._id)}" data-revision="${location._revision}" ${isTaxonomyVisible(location) ? 'checked' : ''}>
           Sichtbar
         </label>
@@ -1037,11 +1020,11 @@ function renderAccountContextSettings() {
           <input name="name" value="${escapeHtml(context.name || '')}" required>
         </label>
         <div class="entry-actions">
-          <label class="checkbox-line user-permission-line">
+          <label class="checkbox-line user-permission-line is-editable">
             <input type="checkbox" data-default-context="${escapeHtml(context._id)}" ${isDefault ? 'checked' : ''}>
             Standard
           </label>
-          <label class="checkbox-line user-permission-line">
+          <label class="checkbox-line user-permission-line is-editable">
             <input type="checkbox" data-toggle-taxonomy-visible="contexts" data-taxonomy-id="${escapeHtml(context._id)}" data-revision="${context._revision}" ${isTaxonomyVisible(context) ? 'checked' : ''}>
             Sichtbar
           </label>
@@ -1186,14 +1169,6 @@ async function saveAccountDefaults(patch) {
   if (state.status?.auth) state.status.auth.user = result.user || state.account?.user || state.status.auth.user;
 }
 
-async function saveHiddenItemPrefs() {
-  await saveAccountDefaults({
-    show_hidden_dogs: state.showHiddenDogs,
-    show_hidden_locations: state.showHiddenLocations,
-    show_hidden_contexts: state.showHiddenContexts,
-  });
-}
-
 async function toggleTaxonomyVisible(type, id, revision, visible) {
   if (!type || !id || !revision) return;
   const user = currentAccountUser();
@@ -1251,27 +1226,90 @@ async function saveAccountProfileForm() {
 async function loadUsers() {
   const result = await api('admin-users');
   const currentUserId = state.status?.auth?.user?.id || '';
-  els.userList.innerHTML = (result.users || []).map((user) => `
-    <div class="user-row" data-user-row="${escapeHtml(user.id)}">
-      <strong>${escapeHtml(user.username)} · ${escapeHtml(user.display_name || 'Kein Anzeigename')}</strong>
-      <span class="muted">${escapeHtml(user.email || 'Keine E-Mail-Adresse')}</span>
-      <div class="user-row-actions">
-        <label class="checkbox-line user-permission-line">
-          <input type="checkbox" data-user-permission="${escapeHtml(user.id)}" ${user.permissions.includes('manage_users') ? 'checked' : ''} ${user.protected_admin ? 'disabled' : ''}>
-          Kann Benutzer verwalten
-        </label>
-        <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
-          ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
-        </button>
-      </div>
-    </div>
-  `).join('');
+  const users = result.users || [];
+  const visibleUsers = state.showDisabledUsers ? users : users.filter((user) => user.enabled);
+  const disabledCount = users.filter((user) => !user.enabled).length;
+  if (els.userSectionTitle) els.userSectionTitle.textContent = `Alle Benutzer (${visibleUsers.length})`;
+  if (els.disabledUserCount) els.disabledUserCount.textContent = `(${disabledCount})`;
+  if (els.showDisabledUsers) els.showDisabledUsers.checked = state.showDisabledUsers;
+  els.userList.innerHTML = visibleUsers.map((user) => {
+    const canManageUsers = user.permissions.includes('manage_users');
+    const permissionLocked = user.protected_admin && canManageUsers;
+    const setupUrl = state.userSetupLinks.get(user.id) || '';
+    return `
+      <form class="user-row user-edit" data-user-id="${escapeHtml(user.id)}">
+        <strong class="user-edit-title">${escapeHtml(user.username || 'Benutzer')}</strong>
+        <div class="user-edit-fields">
+          <label>
+            <span class="control-title">Benutzername</span>
+            <input name="username" value="${escapeHtml(user.username || '')}" data-user-name-input="${escapeHtml(user.id)}" autocomplete="off" required>
+          </label>
+          <label>
+            <span class="control-title">Anzeigename</span>
+            <input name="display_name" value="${escapeHtml(user.display_name || '')}" autocomplete="name">
+          </label>
+          <label>
+            <span class="control-title">E-Mail-Adresse</span>
+            <input name="email" type="email" value="${escapeHtml(user.email || '')}" autocomplete="email">
+          </label>
+        </div>
+        <div class="user-row-actions">
+          <label class="checkbox-line user-permission-line${permissionLocked ? ' is-disabled' : ' is-editable'}">
+            ${permissionLocked ? '<input name="manage_users" type="hidden" value="1">' : ''}
+            <input name="manage_users" type="checkbox" value="1" ${canManageUsers ? 'checked' : ''} ${permissionLocked ? 'disabled' : ''}>
+            Kann Benutzer verwalten
+          </label>
+          <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
+            ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
+          </button>
+        </div>
+        <p class="setup-link" data-user-setup-link="${escapeHtml(user.id)}" ${setupUrl ? '' : 'hidden'}></p>
+      </form>
+    `;
+  }).join('');
+  els.userList.querySelectorAll('[data-user-setup-link]').forEach((element) => {
+    const url = state.userSetupLinks.get(element.dataset.userSetupLink) || '';
+    if (url) renderSetupLink(element, url);
+  });
+  els.userList.querySelectorAll('.user-edit').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveUserForm(form).catch((error) => setMessage(error.message, true));
+    });
+    form.querySelectorAll('input[name="username"], input[name="display_name"], input[name="email"], input[name="manage_users"]').forEach((input) => {
+      const eventName = input.type === 'checkbox' ? 'change' : 'input';
+      input.addEventListener(eventName, () => queueUserSave(form));
+      if (input.type !== 'checkbox') input.addEventListener('change', () => queueUserSave(form));
+    });
+  });
   els.userList.querySelectorAll('[data-user-enabled]').forEach((input) => {
     input.addEventListener('click', () => updateUserEnabled(input).catch((error) => setMessage(error.message, true)));
   });
-  els.userList.querySelectorAll('[data-user-permission]').forEach((input) => {
-    input.addEventListener('change', () => updateUserPermissions(input).catch((error) => setMessage(error.message, true)));
+}
+
+function queueUserSave(form) {
+  const id = form.dataset.userId;
+  clearTimeout(state.userSaveTimers.get(id));
+  state.userSaveTimers.set(id, setTimeout(() => saveUserForm(form).catch((error) => setMessage(error.message, true)), 500));
+}
+
+async function saveUserForm(form) {
+  const data = new FormData(form);
+  const username = String(data.get('username') || '').trim();
+  if (username === '') return;
+  const result = await api('admin-update-user', {
+    method: 'POST',
+    body: {
+      id: form.dataset.userId,
+      username,
+      display_name: data.get('display_name'),
+      email: data.get('email'),
+      permissions: data.get('manage_users') === '1' ? ['manage_users'] : [],
+    },
   });
+  form.querySelector('.user-edit-title').textContent = result.user?.username || username;
+  if (form.dataset.userId === state.status?.auth?.user?.id) await refresh();
+  setMessage('Benutzer gespeichert.');
 }
 
 async function updateUserEnabled(input) {
@@ -1288,25 +1326,6 @@ async function updateUserEnabled(input) {
     await loadUsers();
     if (input.dataset.userEnabled === state.status?.auth?.user?.id) await refresh();
     setMessage('Benutzerstatus gespeichert.');
-  } finally {
-    input.disabled = false;
-  }
-}
-
-async function updateUserPermissions(input) {
-  input.disabled = true;
-  try {
-    const permissions = input.checked ? ['manage_users'] : [];
-    await api('admin-update-user', {
-      method: 'POST',
-      body: {
-        id: input.dataset.userPermission,
-        permissions,
-      },
-    });
-    await loadUsers();
-    if (input.dataset.userPermission === state.status?.auth?.user?.id) await refresh();
-    setMessage('Benutzerrechte gespeichert.');
   } finally {
     input.disabled = false;
   }
@@ -2161,19 +2180,16 @@ els.showHiddenDogs.addEventListener('change', () => {
   state.showHiddenDogs = els.showHiddenDogs.checked;
   resetAccountListOrder('dogs');
   renderAccountDogs();
-  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.showHiddenContexts.addEventListener('change', () => {
   state.showHiddenContexts = els.showHiddenContexts.checked;
   resetAccountListOrder('contexts');
   renderAccountContextSettings();
-  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.showHiddenLocations.addEventListener('change', () => {
   state.showHiddenLocations = els.showHiddenLocations.checked;
   resetAccountListOrder('locations');
   renderAccountLocationSettings();
-  saveHiddenItemPrefs().catch((error) => setMessage(error.message, true));
 });
 els.contextCreateButton.addEventListener('click', () => addContext(true).catch((error) => setMessage(error.message, true)));
 els.locationCreateButton.addEventListener('click', () => addLocation(true).catch((error) => setMessage(error.message, true)));
@@ -2290,22 +2306,26 @@ els.dogCreateButton.addEventListener('click', async () => {
   renderMeasurementControls();
   renderEntries();
 });
-els.createUserForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const form = new FormData(event.currentTarget);
+els.userCreateButton.addEventListener('click', async () => {
+  const username = `neuer-benutzer-${Date.now().toString(36)}`;
   const result = await api('admin-create-user', {
     method: 'POST',
     body: {
-      username: form.get('username'),
-      display_name: form.get('display_name'),
-      email: form.get('email'),
-      permissions: form.get('manage_users') === '1' ? ['manage_users'] : [],
+      username,
+      display_name: '',
+      email: '',
+      permissions: [],
     },
   });
-  els.setupResult.hidden = false;
-  renderSetupLink(els.setupResult, result.setup?.setup_url || '');
-  event.currentTarget.reset();
+  if (result.user?.id && result.setup?.setup_url) state.userSetupLinks.set(result.user.id, result.setup.setup_url);
   await loadUsers();
+  const input = els.userList.querySelector(`[data-user-name-input="${cssEscape(result.user?.id || '')}"]`);
+  input?.focus();
+  input?.select();
+});
+els.showDisabledUsers.addEventListener('change', () => {
+  state.showDisabledUsers = els.showDisabledUsers.checked;
+  loadUsers().catch((error) => setMessage(error.message, true));
 });
 hydrateStaticIcons();
 renderMeasurementControls();

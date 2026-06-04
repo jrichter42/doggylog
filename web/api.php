@@ -463,7 +463,7 @@ try {
                 Http::json(['ok' => false, 'error' => 'User ID is required'], 400);
             }
 
-            $user = $auth->updateUser($targetUser, $body, (string) $admin['id'], true, true);
+            $user = $auth->updateUser($targetUser, $body, (string) $admin['id'], true, true, true);
             Http::json(['ok' => true, 'user' => $user]);
             break;
 

@@ -130,9 +130,6 @@ final class AuthStore
                 'default_dog_id' => '',
                 'default_location_id' => '',
                 'default_context_ids' => [],
-                'show_hidden_dogs' => false,
-                'show_hidden_locations' => false,
-                'show_hidden_contexts' => false,
                 'user_handle' => Base64Url::encode(random_bytes(32)),
                 'credentials' => [],
                 'created_at' => $now,
@@ -195,18 +192,6 @@ final class AuthStore
                 $user['default_context_ids'] = $this->normalizeObjectIds(is_array($patch['default_context_ids']) ? $patch['default_context_ids'] : []);
             }
 
-            if (array_key_exists('show_hidden_dogs', $patch)) {
-                $user['show_hidden_dogs'] = (bool) $patch['show_hidden_dogs'];
-            }
-
-            if (array_key_exists('show_hidden_locations', $patch)) {
-                $user['show_hidden_locations'] = (bool) $patch['show_hidden_locations'];
-            }
-
-            if (array_key_exists('show_hidden_contexts', $patch)) {
-                $user['show_hidden_contexts'] = (bool) $patch['show_hidden_contexts'];
-            }
-
             if (array_key_exists('enabled', $patch)) {
                 if (!(bool) $patch['enabled'] && $updatedBy !== null && $this->sameUserIdentity($user, $updatedBy)) {
                     throw new InvalidArgumentException('You cannot deactivate your own user.');
@@ -260,15 +245,6 @@ final class AuthStore
         }
         if (array_key_exists('default_context_ids', $patch)) {
             $allowedPatch['default_context_ids'] = $patch['default_context_ids'];
-        }
-        if (array_key_exists('show_hidden_dogs', $patch)) {
-            $allowedPatch['show_hidden_dogs'] = $patch['show_hidden_dogs'];
-        }
-        if (array_key_exists('show_hidden_locations', $patch)) {
-            $allowedPatch['show_hidden_locations'] = $patch['show_hidden_locations'];
-        }
-        if (array_key_exists('show_hidden_contexts', $patch)) {
-            $allowedPatch['show_hidden_contexts'] = $patch['show_hidden_contexts'];
         }
         $updated = $this->updateUser($userId, $allowedPatch, $userId, true, true, true);
         $this->startSession();
@@ -1121,9 +1097,6 @@ final class AuthStore
             'default_dog_id' => $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true),
             'default_location_id' => $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true),
             'default_context_ids' => $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []),
-            'show_hidden_dogs' => (bool) ($user['show_hidden_dogs'] ?? false),
-            'show_hidden_locations' => (bool) ($user['show_hidden_locations'] ?? false),
-            'show_hidden_contexts' => (bool) ($user['show_hidden_contexts'] ?? false),
         ];
     }
 
@@ -1597,9 +1570,6 @@ final class AuthStore
                 $user['default_dog_id'] = $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true);
                 $user['default_location_id'] = $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true);
                 $user['default_context_ids'] = $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []);
-                $user['show_hidden_dogs'] = (bool) ($user['show_hidden_dogs'] ?? false);
-                $user['show_hidden_locations'] = (bool) ($user['show_hidden_locations'] ?? false);
-                $user['show_hidden_contexts'] = (bool) ($user['show_hidden_contexts'] ?? false);
                 $users[] = $user;
             }
         }
@@ -1634,9 +1604,6 @@ final class AuthStore
             $user['default_dog_id'] = $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true);
             $user['default_location_id'] = $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true);
             $user['default_context_ids'] = $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []);
-            $user['show_hidden_dogs'] = (bool) ($user['show_hidden_dogs'] ?? false);
-            $user['show_hidden_locations'] = (bool) ($user['show_hidden_locations'] ?? false);
-            $user['show_hidden_contexts'] = (bool) ($user['show_hidden_contexts'] ?? false);
             $seen[strtolower($userId)] = true;
 
             $directory = $this->usersPath . '/' . $userId;

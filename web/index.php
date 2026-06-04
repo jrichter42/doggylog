@@ -217,7 +217,7 @@ $configWarnings = array_map(
             </div>
             <button class="primary account-add-button" id="dogCreateButton" type="button" data-icon="plus">Hund hinzufügen</button>
             <div class="default-summary" id="defaultDogSummary"></div>
-            <label class="checkbox-line hidden-taxonomy-toggle">
+            <label class="checkbox-line hidden-taxonomy-toggle is-editable">
               <input id="showHiddenDogs" type="checkbox">
               Ausgeblendete anzeigen <span id="hiddenDogCount"></span>
             </label>
@@ -229,7 +229,7 @@ $configWarnings = array_map(
               <h2 id="locationSectionTitle">Orte</h2>
             </div>
             <button class="primary account-add-button" id="locationCreateButton" type="button" data-icon="plus">Ort hinzuf&uuml;gen</button>
-            <label class="checkbox-line hidden-taxonomy-toggle">
+            <label class="checkbox-line hidden-taxonomy-toggle is-editable">
               <input id="showHiddenLocations" type="checkbox">
               Ausgeblendete anzeigen <span id="hiddenLocationCount"></span>
             </label>
@@ -241,47 +241,22 @@ $configWarnings = array_map(
               <h2 id="contextSectionTitle">Kontexte</h2>
             </div>
             <button class="primary account-add-button" id="contextCreateButton" type="button" data-icon="plus">Kontext hinzuf&uuml;gen</button>
-            <label class="checkbox-line hidden-taxonomy-toggle">
+            <label class="checkbox-line hidden-taxonomy-toggle is-editable">
               <input id="showHiddenContexts" type="checkbox">
               Ausgeblendete anzeigen <span id="hiddenContextCount"></span>
             </label>
             <div class="entries" id="contextList"></div>
           </section>
 
-          <section class="admin" id="adminPanel" hidden>
-            <div class="section-head">
-              <h2>Benutzer erstellen</h2>
-            </div>
-            <form id="createUserForm" class="user-create-form">
-              <div class="user-create-fields">
-                <label>
-                  <span class="control-title">Benutzername</span>
-                  <input name="username" autocomplete="off" required>
-                </label>
-                <label>
-                  <span class="control-title">Anzeigename</span>
-                  <input name="display_name" autocomplete="name">
-                </label>
-                <label>
-                  <span class="control-title">E-Mail-Adresse</span>
-                  <input name="email" type="email" autocomplete="email">
-                </label>
-              </div>
-              <div class="user-create-actions">
-                <label class="checkbox-line">
-                  <input name="manage_users" type="checkbox" value="1">
-                  Kann Benutzer verwalten
-                </label>
-                <button class="primary" type="submit" data-icon="user-plus">Benutzer erstellen</button>
-              </div>
-            </form>
-            <p class="setup-link" id="setupResult" hidden></p>
-          </section>
-
           <section class="admin" id="userAdminPanel" hidden>
             <div class="section-head">
-              <h2>Alle Benutzer</h2>
+              <h2 id="userSectionTitle">Alle Benutzer</h2>
             </div>
+            <button class="primary account-add-button" id="userCreateButton" type="button" data-icon="plus">Benutzer hinzufügen</button>
+            <label class="checkbox-line hidden-taxonomy-toggle is-editable">
+              <input id="showDisabledUsers" type="checkbox">
+              Deaktivierte anzeigen <span id="disabledUserCount"></span>
+            </label>
             <div id="userList" class="user-list"></div>
           </section>
         </section>
