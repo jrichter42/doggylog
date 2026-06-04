@@ -1057,6 +1057,39 @@ textarea {
   line-height: 1.15;
 }
 
+.default-summary {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.default-summary strong {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.taxonomy-edit {
+  gap: 0.8rem;
+  grid-template-columns: minmax(12rem, 22rem) minmax(0, 1fr);
+  align-items: end;
+}
+
+.taxonomy-edit label {
+  min-width: 0;
+}
+
+.taxonomy-edit .entry-actions {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: end;
+}
+
+.taxonomy-edit .checkbox-line {
+  align-self: auto;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 0.6rem;
+}
+
 footer {
   padding: 2rem 1rem;
   text-align: center;
@@ -1089,6 +1122,10 @@ footer {
   .access-card,
   .admin {
     padding: 0.85rem;
+  }
+
+  .taxonomy-edit {
+    grid-template-columns: 1fr;
   }
 }
 .account-card {

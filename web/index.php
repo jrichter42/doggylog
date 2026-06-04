@@ -213,10 +213,41 @@ $configWarnings = array_map(
 
           <section class="access-card">
             <div class="section-head">
-              <h2>Hunde</h2>
+              <h2 id="dogSectionTitle">Hunde</h2>
             </div>
             <button class="primary account-add-button" id="dogCreateButton" type="button" data-icon="plus">Hund hinzufügen</button>
+            <div class="default-summary" id="defaultDogSummary"></div>
+            <label class="checkbox-line hidden-taxonomy-toggle">
+              <input id="showHiddenDogs" type="checkbox">
+              Ausgeblendete anzeigen <span id="hiddenDogCount"></span>
+            </label>
             <div class="entries" id="dogList"></div>
+          </section>
+
+          <section class="access-card">
+            <div class="section-head">
+              <h2 id="locationSectionTitle">Orte</h2>
+            </div>
+            <button class="primary account-add-button" id="locationCreateButton" type="button" data-icon="plus">Ort hinzuf&uuml;gen</button>
+            <div class="default-summary" id="defaultLocationSummary"></div>
+            <label class="checkbox-line hidden-taxonomy-toggle">
+              <input id="showHiddenLocations" type="checkbox">
+              Ausgeblendete anzeigen <span id="hiddenLocationCount"></span>
+            </label>
+            <div class="entries" id="locationList"></div>
+          </section>
+
+          <section class="access-card">
+            <div class="section-head">
+              <h2 id="contextSectionTitle">Kontexte</h2>
+            </div>
+            <button class="primary account-add-button" id="contextCreateButton" type="button" data-icon="plus">Kontext hinzuf&uuml;gen</button>
+            <div class="default-summary" id="defaultContextSummary"></div>
+            <label class="checkbox-line hidden-taxonomy-toggle">
+              <input id="showHiddenContexts" type="checkbox">
+              Ausgeblendete anzeigen <span id="hiddenContextCount"></span>
+            </label>
+            <div class="entries" id="contextList"></div>
           </section>
 
           <section class="admin" id="adminPanel" hidden>

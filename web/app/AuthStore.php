@@ -127,6 +127,9 @@ final class AuthStore
                 'email' => $email,
                 'enabled' => true,
                 'permissions' => $permissions,
+                'default_dog_id' => '',
+                'default_location_id' => '',
+                'default_context_ids' => [],
                 'user_handle' => Base64Url::encode(random_bytes(32)),
                 'credentials' => [],
                 'created_at' => $now,
@@ -177,6 +180,18 @@ final class AuthStore
                 $user['email'] = $newEmail;
             }
 
+            if (array_key_exists('default_dog_id', $patch)) {
+                $user['default_dog_id'] = $this->normalizeObjectId((string) $patch['default_dog_id'], true);
+            }
+
+            if (array_key_exists('default_location_id', $patch)) {
+                $user['default_location_id'] = $this->normalizeObjectId((string) $patch['default_location_id'], true);
+            }
+
+            if (array_key_exists('default_context_ids', $patch)) {
+                $user['default_context_ids'] = $this->normalizeObjectIds(is_array($patch['default_context_ids']) ? $patch['default_context_ids'] : []);
+            }
+
             if (array_key_exists('enabled', $patch)) {
                 if (!(bool) $patch['enabled'] && $updatedBy !== null && $this->sameUserIdentity($user, $updatedBy)) {
                     throw new InvalidArgumentException('You cannot deactivate your own user.');
@@ -221,6 +236,15 @@ final class AuthStore
         }
         if (array_key_exists('email', $patch)) {
             $allowedPatch['email'] = $patch['email'];
+        }
+        if (array_key_exists('default_dog_id', $patch)) {
+            $allowedPatch['default_dog_id'] = $patch['default_dog_id'];
+        }
+        if (array_key_exists('default_location_id', $patch)) {
+            $allowedPatch['default_location_id'] = $patch['default_location_id'];
+        }
+        if (array_key_exists('default_context_ids', $patch)) {
+            $allowedPatch['default_context_ids'] = $patch['default_context_ids'];
         }
         $updated = $this->updateUser($userId, $allowedPatch, $userId, true, true, true);
         $this->startSession();
@@ -1070,6 +1094,9 @@ final class AuthStore
             'updated_at' => $user['updated_at'] ?? null,
             'last_login_at' => $user['last_login_at'] ?? null,
             'needs_setup' => count($user['credentials'] ?? []) === 0,
+            'default_dog_id' => $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true),
+            'default_location_id' => $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true),
+            'default_context_ids' => $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []),
         ];
     }
 
@@ -1168,6 +1195,37 @@ final class AuthStore
         }
 
         return $userId;
+    }
+
+    private function normalizeObjectId(string $objectId, bool $allowEmpty): string
+    {
+        $objectId = strtolower(trim($objectId));
+        if ($objectId === '' && $allowEmpty) {
+            return '';
+        }
+
+        if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $objectId)) {
+            throw new InvalidArgumentException('Invalid object ID.');
+        }
+
+        return $objectId;
+    }
+
+    /**
+     * @param array<int, mixed> $objectIds
+     * @return array<int, string>
+     */
+    private function normalizeObjectIds(array $objectIds): array
+    {
+        $normalized = [];
+        foreach ($objectIds as $objectId) {
+            $value = $this->normalizeObjectId((string) $objectId, true);
+            if ($value !== '') {
+                $normalized[] = $value;
+            }
+        }
+
+        return array_slice(array_values(array_unique($normalized)), 0, 30);
     }
 
     private function normalizeEmail(string $email, bool $allowEmpty): string
@@ -1509,6 +1567,9 @@ final class AuthStore
                 }
                 $user['id'] = $this->normalizeUserId((string) $user['id']);
                 $user['permissions'] = $this->normalizePermissions(is_array($user['permissions'] ?? null) ? $user['permissions'] : []);
+                $user['default_dog_id'] = $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true);
+                $user['default_location_id'] = $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true);
+                $user['default_context_ids'] = $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []);
                 $users[] = $user;
             }
         }
@@ -1540,6 +1601,9 @@ final class AuthStore
             $user['id'] = $userId;
             $user['username'] = $username;
             $user['permissions'] = $this->normalizePermissions(is_array($user['permissions'] ?? null) ? $user['permissions'] : []);
+            $user['default_dog_id'] = $this->normalizeObjectId((string) ($user['default_dog_id'] ?? ''), true);
+            $user['default_location_id'] = $this->normalizeObjectId((string) ($user['default_location_id'] ?? ''), true);
+            $user['default_context_ids'] = $this->normalizeObjectIds(is_array($user['default_context_ids'] ?? null) ? $user['default_context_ids'] : []);
             $seen[strtolower($userId)] = true;
 
             $directory = $this->usersPath . '/' . $userId;

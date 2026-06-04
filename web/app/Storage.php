@@ -18,12 +18,15 @@ final class Storage
         'dogs' => [
             'name' => ['type' => 'string', 'default' => 'Mein Hund'],
             'notes' => ['type' => 'string', 'default' => ''],
+            'visible' => ['type' => 'boolean', 'default' => true],
         ],
         'locations' => [
             'name' => ['type' => 'string', 'default' => ''],
+            'visible' => ['type' => 'boolean', 'default' => true],
         ],
         'contexts' => [
             'name' => ['type' => 'string', 'default' => ''],
+            'visible' => ['type' => 'boolean', 'default' => true],
         ],
         'vitals' => [
             'measured_at' => ['type' => 'datetime-local', 'default' => ''],
@@ -109,6 +112,9 @@ final class Storage
                 continue;
             }
 
+            if (in_array($type, ['dogs', 'locations', 'contexts'], true)) {
+                $object['visible'] = (bool) ($object['visible'] ?? true);
+            }
             $objects[] = $object;
         }
 
@@ -442,6 +448,11 @@ final class Storage
             if (in_array($type, ['dogs', 'locations', 'contexts'], true) && $field === 'name') {
                 $name = trim((string) $value);
                 $normalized[$field] = $name !== '' ? substr($name, 0, 80) : ($type === 'dogs' ? 'Mein Hund' : '');
+                continue;
+            }
+
+            if (in_array($type, ['dogs', 'locations', 'contexts'], true) && $field === 'visible') {
+                $normalized[$field] = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
                 continue;
             }
 

@@ -42,6 +42,10 @@ const state = {
   saveTimers: new Map(),
   accountProfileSaveTimer: null,
   dogSaveTimers: new Map(),
+  taxonomySaveTimers: new Map(),
+  showHiddenDogs: false,
+  showHiddenLocations: false,
+  showHiddenContexts: false,
   messageTimer: null,
 };
 
@@ -102,8 +106,24 @@ const els = {
   selfSetupResult: $('selfSetupResult'),
   logoutButton: $('logoutButton'),
   accountProfileForm: $('accountProfileForm'),
+  dogSectionTitle: $('dogSectionTitle'),
   dogCreateButton: $('dogCreateButton'),
+  showHiddenDogs: $('showHiddenDogs'),
+  defaultDogSummary: $('defaultDogSummary'),
+  hiddenDogCount: $('hiddenDogCount'),
   dogList: $('dogList'),
+  locationCreateButton: $('locationCreateButton'),
+  locationSectionTitle: $('locationSectionTitle'),
+  showHiddenLocations: $('showHiddenLocations'),
+  defaultLocationSummary: $('defaultLocationSummary'),
+  hiddenLocationCount: $('hiddenLocationCount'),
+  locationList: $('locationList'),
+  contextCreateButton: $('contextCreateButton'),
+  contextSectionTitle: $('contextSectionTitle'),
+  showHiddenContexts: $('showHiddenContexts'),
+  defaultContextSummary: $('defaultContextSummary'),
+  hiddenContextCount: $('hiddenContextCount'),
+  contextList: $('contextList'),
   adminPanel: $('adminPanel'),
   userAdminPanel: $('userAdminPanel'),
   createUserForm: $('createUserForm'),
@@ -384,9 +404,9 @@ function renderMeasurementControls() {
 }
 
 function renderContextOptions() {
-  const options = state.contextPresets;
+  const options = visibleContexts();
   const selected = selectedContexts();
-  els.contextInput.value = selected.filter((context) => state.contextPresets.some((item) => item._id === context)).join(', ');
+  els.contextInput.value = selected.filter((context) => options.some((item) => item._id === context)).join(', ');
   els.contextButtons.innerHTML = options.map((context) => pillButton({
     value: context._id,
     label: context.name,
@@ -414,8 +434,9 @@ function setSelectedContexts(contexts) {
 }
 
 function renderLocationOptions() {
-  if (!state.locationPresets.some((location) => location._id === state.location)) state.location = state.locationPresets[0]?._id || '';
-  els.locationButtons.innerHTML = state.locationPresets.map((location) => pillButton({
+  const options = visibleLocations();
+  if (!options.some((location) => location._id === state.location)) state.location = options[0]?._id || '';
+  els.locationButtons.innerHTML = options.map((location) => pillButton({
     value: location._id,
     label: location.name,
     active: location._id === state.location,
@@ -436,6 +457,31 @@ function pillButton({ value, label, active, deleteMode, deleteCandidate, attr })
   if (deleteMode) classes.push('is-delete-mode');
   if (deleteMode && deleteCandidate === value) classes.push('is-delete-candidate');
   return `<button type="button" class="${classes.join(' ')}" ${attr}="${escapeHtml(value)}">${iconName ? labelWithIcon(iconName, label) : escapeHtml(label)}</button>`;
+}
+
+function isTaxonomyVisible(item) {
+  return item.visible !== false;
+}
+
+function visibleDogs() {
+  return state.dogs.filter(isTaxonomyVisible);
+}
+
+function visibleLocations() {
+  return state.locationPresets.filter(isTaxonomyVisible);
+}
+
+function visibleContexts() {
+  return state.contextPresets.filter(isTaxonomyVisible);
+}
+
+function sortByDefaultThenName(items, isDefault) {
+  return items.slice().sort((left, right) => {
+    const defaultDiff = Number(isDefault(right)) - Number(isDefault(left));
+    if (defaultDiff !== 0) return defaultDiff;
+    const byName = String(left.name || '').localeCompare(String(right.name || ''), 'de', { sensitivity: 'base' });
+    return byName || String(left._id || '').localeCompare(String(right._id || ''));
+  });
 }
 
 function resetMeasurement() {
@@ -622,6 +668,7 @@ async function loadDogs() {
     });
     state.dogs = [created.object];
   }
+  await ensureDefaultDogSaved();
   renderDogSelect();
   renderAccountDogs();
 }
@@ -639,15 +686,28 @@ async function loadTaxonomy() {
     )));
     state.locationPresets = defaults.map((result) => result.object);
   }
-  if (!state.locationPresets.some((location) => location._id === state.location)) {
-    state.location = state.locationPresets[0]?._id || '';
+  const accountUser = currentAccountUser();
+  const defaultLocationId = accountUser.default_location_id || '';
+  const defaultContextIds = Array.isArray(accountUser.default_context_ids) ? accountUser.default_context_ids : [];
+  const locationOptions = visibleLocations();
+  const contextOptions = visibleContexts();
+  if (!locationOptions.some((location) => location._id === state.location)) {
+    state.location = locationOptions.some((location) => location._id === defaultLocationId)
+      ? defaultLocationId
+      : locationOptions[0]?._id || '';
   }
-  setSelectedContexts(selectedContexts().filter((id) => state.contextPresets.some((context) => context._id === id)));
+  const validDefaultContexts = sortContextIds(defaultContextIds.filter((id) => contextOptions.some((context) => context._id === id)));
+  if (selectedContexts().length === 0 && validDefaultContexts.length > 0) {
+    setSelectedContexts(validDefaultContexts);
+  }
+  setSelectedContexts(sortContextIds(selectedContexts().filter((id) => contextOptions.some((context) => context._id === id))));
 }
 
 async function loadAccountView() {
   const result = await api('account');
   state.account = result.account || null;
+  await ensureDefaultDogSaved();
+  await ensureDefaultLocationSaved();
   renderAccountView();
   if (!els.adminPanel.hidden || !els.userAdminPanel.hidden) await loadUsers();
 }
@@ -659,10 +719,15 @@ function renderAccountView() {
   els.userAdminPanel.hidden = !canManageUsers;
   renderAccountProfile();
   renderAccountDogs();
+  renderAccountTaxonomy();
+}
+
+function currentAccountUser() {
+  return state.account?.user || state.status?.auth?.user || {};
 }
 
 function renderAccountProfile() {
-  const user = state.account?.user || state.status?.auth?.user || {};
+  const user = currentAccountUser();
   if (!els.accountProfileForm) return;
   els.accountProfileForm.elements.username.value = user.username || '';
   els.accountProfileForm.elements.display_name.value = user.display_name || '';
@@ -671,12 +736,17 @@ function renderAccountProfile() {
 
 function renderAccountDogs() {
   if (!els.dogList) return;
-  if (state.dogs.length === 0) {
+  const defaultId = accountDefaultDogId();
+  const dogs = sortByDefaultThenName(state.showHiddenDogs ? state.dogs : visibleDogs(), (dog) => dog._id === defaultId);
+  els.showHiddenDogs.checked = state.showHiddenDogs;
+  renderDefaultDogSummary();
+  renderAccountObjectCounts();
+  if (dogs.length === 0) {
     els.dogList.innerHTML = '<p class="muted">Noch kein Hund.</p>';
     return;
   }
 
-  els.dogList.innerHTML = state.dogs.map((dog) => `
+  els.dogList.innerHTML = dogs.map((dog) => `
     <form class="entry dog-edit" data-dog-id="${escapeHtml(dog._id)}" data-revision="${dog._revision}">
       <strong class="dog-edit-title">${escapeHtml(dog.name || 'Mein Hund')}</strong>
       <label>
@@ -688,7 +758,14 @@ function renderAccountDogs() {
         <textarea name="notes" rows="2">${escapeHtml(dog.notes || '')}</textarea>
       </label>
       <div class="entry-actions">
-        <button class="delete-entry has-ui-icon" type="button" data-delete-dog="${escapeHtml(dog._id)}" data-revision="${dog._revision}">${labelWithIcon('trash', 'Löschen')}</button>
+        <label class="checkbox-line user-permission-line">
+          <input type="checkbox" data-default-dog="${escapeHtml(dog._id)}" ${dog._id === defaultId ? 'checked disabled' : ''}>
+          Standard
+        </label>
+        <label class="checkbox-line user-permission-line">
+          <input type="checkbox" data-toggle-dog-visible="${escapeHtml(dog._id)}" data-revision="${dog._revision}" ${isTaxonomyVisible(dog) ? 'checked' : ''}>
+          Sichtbar
+        </label>
       </div>
     </form>
   `).join('');
@@ -698,13 +775,27 @@ function renderAccountDogs() {
       event.preventDefault();
       saveAccountDogForm(form).catch((error) => setMessage(error.message, true));
     });
-    form.querySelectorAll('input, textarea').forEach((input) => {
+    form.querySelectorAll('input[name="name"], textarea[name="notes"]').forEach((input) => {
       input.addEventListener('input', () => queueAccountDogSave(form));
       input.addEventListener('change', () => queueAccountDogSave(form));
     });
   });
-  els.dogList.querySelectorAll('[data-delete-dog]').forEach((button) => {
-    button.addEventListener('click', () => deleteAccountDog(button.dataset.deleteDog, Number(button.dataset.revision)).catch((error) => setMessage(error.message, true)));
+  els.dogList.querySelectorAll('[data-default-dog]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) {
+        input.checked = true;
+        return;
+      }
+      setDefaultDog(input.dataset.defaultDog).catch((error) => setMessage(error.message, true));
+    });
+  });
+  els.dogList.querySelectorAll('[data-toggle-dog-visible]').forEach((input) => {
+    input.addEventListener('change', () => {
+      toggleDogVisible(input.dataset.toggleDogVisible, Number(input.dataset.revision), input.checked).catch((error) => {
+        input.checked = !input.checked;
+        setMessage(error.message, true);
+      });
+    });
   });
 }
 
@@ -733,22 +824,345 @@ async function saveAccountDogForm(form) {
   form.dataset.revision = result.object?._revision || form.dataset.revision;
   const title = form.querySelector('.dog-edit-title');
   if (title) title.textContent = result.object?.name || 'Mein Hund';
-  const deleteButton = form.querySelector('[data-delete-dog]');
-  if (deleteButton) deleteButton.dataset.revision = form.dataset.revision;
+  const visibleInput = form.querySelector('[data-toggle-dog-visible]');
+  if (visibleInput) visibleInput.dataset.revision = form.dataset.revision;
   state.dogs = state.dogs.map((dog) => (dog._id === form.dataset.dogId ? result.object : dog));
   setMessage('Hund gespeichert.');
   renderMeasurementControls();
   renderEntries();
 }
 
-async function deleteAccountDog(id, revision) {
-  if (!id || !revision) return;
-  if (!window.confirm('Hund löschen? Bestehende Messungen bleiben im Verlauf mit gespeichertem Namen.')) return;
-  await api('object-delete', { method: 'POST', body: { type: 'dogs', id, base_revision: revision } });
-  setMessage('Hund gelöscht.');
-  await loadDogs();
+function renderAccountTaxonomy() {
+  renderAccountLocationSettings();
+  renderAccountContextSettings();
+}
+
+function accountDefaultDogId() {
+  const user = currentAccountUser();
+  const value = user.default_dog_id || '';
+  const options = visibleDogs();
+  return options.some((dog) => dog._id === value)
+    ? value
+    : options[0]?._id || '';
+}
+
+async function ensureDefaultDogSaved() {
+  const user = currentAccountUser();
+  const options = visibleDogs();
+  if (options.length === 0) return;
+  if (options.some((dog) => dog._id === (user.default_dog_id || ''))) return;
+  await saveAccountDefaults({ default_dog_id: options[0]._id });
+}
+
+function renderDefaultDogSummary() {
+  const defaultId = accountDefaultDogId();
+  const defaultDog = state.dogs.find((dog) => dog._id === defaultId);
+  els.defaultDogSummary.innerHTML = `
+    <span class="control-title">Standard</span>
+    <strong>${escapeHtml(defaultDog?.name || 'Kein Hund')}</strong>
+  `;
+}
+
+function renderAccountObjectCounts() {
+  if (els.dogSectionTitle) els.dogSectionTitle.textContent = `Hunde (${visibleDogs().length})`;
+  if (els.hiddenDogCount) els.hiddenDogCount.textContent = `(${state.dogs.length - visibleDogs().length})`;
+  if (els.locationSectionTitle) els.locationSectionTitle.textContent = `Orte (${visibleLocations().length})`;
+  if (els.hiddenLocationCount) els.hiddenLocationCount.textContent = `(${state.locationPresets.length - visibleLocations().length})`;
+  if (els.contextSectionTitle) els.contextSectionTitle.textContent = `Kontexte (${visibleContexts().length})`;
+  if (els.hiddenContextCount) els.hiddenContextCount.textContent = `(${state.contextPresets.length - visibleContexts().length})`;
+}
+
+function accountDefaultLocationId() {
+  const user = currentAccountUser();
+  const value = user.default_location_id || '';
+  const options = visibleLocations();
+  return options.some((location) => location._id === value)
+    ? value
+    : options[0]?._id || '';
+}
+
+function accountDefaultContextIds() {
+  const user = currentAccountUser();
+  const values = Array.isArray(user.default_context_ids) ? user.default_context_ids : [];
+  return sortContextIds(values.filter((id) => visibleContexts().some((context) => context._id === id)));
+}
+
+function sortContextIds(ids) {
+  return ids.slice().sort((left, right) => {
+    const leftContext = state.contextPresets.find((context) => context._id === left);
+    const rightContext = state.contextPresets.find((context) => context._id === right);
+    const byName = String(leftContext?.name || '').localeCompare(String(rightContext?.name || ''), 'de', { sensitivity: 'base' });
+    return byName || String(left).localeCompare(String(right));
+  });
+}
+
+async function ensureDefaultLocationSaved() {
+  const user = currentAccountUser();
+  const options = visibleLocations();
+  if (options.length === 0) return;
+  if (options.some((location) => location._id === (user.default_location_id || ''))) return;
+  await saveAccountDefaults({ default_location_id: options[0]._id });
+}
+
+function renderDefaultLocationSummary() {
+  const defaultId = accountDefaultLocationId();
+  const defaultLocation = state.locationPresets.find((location) => location._id === defaultId);
+  els.defaultLocationSummary.innerHTML = `
+    <span class="control-title">Standard</span>
+    <strong>${escapeHtml(defaultLocation?.name || 'Kein Ort')}</strong>
+  `;
+}
+
+function renderDefaultContextSummary() {
+  const defaultNames = accountDefaultContextIds()
+    .map((id) => state.contextPresets.find((context) => context._id === id)?.name || '')
+    .filter(Boolean);
+  els.defaultContextSummary.innerHTML = `
+    <span class="control-title">Standard</span>
+    <strong>${escapeHtml(defaultNames.join(', ') || 'Kein Kontext')}</strong>
+  `;
+}
+
+function renderAccountLocationSettings() {
+  if (!els.locationList) return;
+  const defaultId = accountDefaultLocationId();
+  const locations = sortByDefaultThenName(state.showHiddenLocations ? state.locationPresets : visibleLocations(), (location) => location._id === defaultId);
+  els.showHiddenLocations.checked = state.showHiddenLocations;
+  renderDefaultLocationSummary();
+  renderAccountObjectCounts();
+  if (locations.length === 0) {
+    els.locationList.innerHTML = '<p class="muted">Noch kein Ort.</p>';
+    return;
+  }
+
+  els.locationList.innerHTML = locations.map((location) => `
+    <form class="entry taxonomy-edit" data-taxonomy-type="locations" data-taxonomy-id="${escapeHtml(location._id)}" data-revision="${location._revision}">
+      <label>
+        <span class="control-title">Name</span>
+        <input name="name" value="${escapeHtml(location.name || '')}" required>
+      </label>
+      <div class="entry-actions">
+        <label class="checkbox-line user-permission-line">
+          <input type="checkbox" data-default-location="${escapeHtml(location._id)}" ${location._id === defaultId ? 'checked disabled' : ''}>
+          Standard
+        </label>
+        <label class="checkbox-line user-permission-line">
+          <input type="checkbox" data-toggle-taxonomy-visible="locations" data-taxonomy-id="${escapeHtml(location._id)}" data-revision="${location._revision}" ${isTaxonomyVisible(location) ? 'checked' : ''}>
+          Sichtbar
+        </label>
+      </div>
+    </form>
+  `).join('');
+  wireAccountTaxonomyList(els.locationList);
+  els.locationList.querySelectorAll('[data-default-location]').forEach((input) => {
+    input.addEventListener('change', () => {
+      if (!input.checked) {
+        input.checked = true;
+        return;
+      }
+      setDefaultLocation(input.dataset.defaultLocation).catch((error) => setMessage(error.message, true));
+    });
+  });
+}
+
+function renderAccountContextSettings() {
+  if (!els.contextList) return;
+  const defaultIds = accountDefaultContextIds();
+  const contexts = sortByDefaultThenName(state.showHiddenContexts ? state.contextPresets : visibleContexts(), (context) => defaultIds.includes(context._id));
+  els.showHiddenContexts.checked = state.showHiddenContexts;
+  renderDefaultContextSummary();
+  renderAccountObjectCounts();
+  if (contexts.length === 0) {
+    els.contextList.innerHTML = '<p class="muted">Noch kein Kontext.</p>';
+    return;
+  }
+
+  els.contextList.innerHTML = contexts.map((context) => {
+    const isDefault = defaultIds.includes(context._id);
+    return `
+      <form class="entry taxonomy-edit" data-taxonomy-type="contexts" data-taxonomy-id="${escapeHtml(context._id)}" data-revision="${context._revision}">
+        <label>
+          <span class="control-title">Name</span>
+          <input name="name" value="${escapeHtml(context.name || '')}" required>
+        </label>
+        <div class="entry-actions">
+          <label class="checkbox-line user-permission-line">
+            <input type="checkbox" data-default-context="${escapeHtml(context._id)}" ${isDefault ? 'checked' : ''}>
+            Standard
+          </label>
+          <label class="checkbox-line user-permission-line">
+            <input type="checkbox" data-toggle-taxonomy-visible="contexts" data-taxonomy-id="${escapeHtml(context._id)}" data-revision="${context._revision}" ${isTaxonomyVisible(context) ? 'checked' : ''}>
+            Sichtbar
+          </label>
+        </div>
+      </form>
+    `;
+  }).join('');
+  wireAccountTaxonomyList(els.contextList);
+  els.contextList.querySelectorAll('[data-default-context]').forEach((input) => {
+    input.addEventListener('change', () => toggleDefaultContext(input.dataset.defaultContext, input.checked).catch((error) => setMessage(error.message, true)));
+  });
+}
+
+function wireAccountTaxonomyList(list) {
+  list.querySelectorAll('.taxonomy-edit').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      saveAccountTaxonomyForm(form).catch((error) => setMessage(error.message, true));
+    });
+    form.querySelectorAll('input[name="name"]').forEach((input) => {
+      input.addEventListener('input', () => queueAccountTaxonomySave(form));
+      input.addEventListener('change', () => queueAccountTaxonomySave(form));
+    });
+  });
+  list.querySelectorAll('[data-toggle-taxonomy-visible]').forEach((input) => {
+    input.addEventListener('change', () => toggleTaxonomyVisible(input.dataset.toggleTaxonomyVisible, input.dataset.taxonomyId, Number(input.dataset.revision), input.checked).catch((error) => setMessage(error.message, true)));
+  });
+}
+
+function queueAccountTaxonomySave(form) {
+  const key = `${form.dataset.taxonomyType}:${form.dataset.taxonomyId}`;
+  clearTimeout(state.taxonomySaveTimers.get(key));
+  state.taxonomySaveTimers.set(key, setTimeout(() => saveAccountTaxonomyForm(form).catch((error) => setMessage(error.message, true)), 500));
+}
+
+async function saveAccountTaxonomyForm(form) {
+  const type = form.dataset.taxonomyType;
+  const id = form.dataset.taxonomyId;
+  const data = new FormData(form);
+  const name = String(data.get('name') || '').trim();
+  if (!type || !id || name === '') return;
+  const result = await api('object-update', {
+    method: 'POST',
+    body: {
+      type,
+      id,
+      base_revision: Number(form.dataset.revision),
+      object: { name },
+    },
+  });
+  form.dataset.revision = result.object?._revision || form.dataset.revision;
+  const listName = type === 'locations' ? 'locationPresets' : 'contextPresets';
+  state[listName] = state[listName].map((item) => (item._id === id ? result.object : item));
+  if (type === 'locations') renderDefaultLocationSummary();
+  if (type === 'contexts') renderDefaultContextSummary();
   renderMeasurementControls();
   renderEntries();
+  setMessage(type === 'locations' ? 'Ort gespeichert.' : 'Kontext gespeichert.');
+}
+
+async function setDefaultLocation(id) {
+  if (!id) return;
+  await ensureTaxonomyVisible('locations', id);
+  await saveAccountDefaults({ default_location_id: id });
+  state.location = id;
+  renderAccountTaxonomy();
+  renderLocationOptions();
+  setMessage('Standardort gespeichert.');
+}
+
+async function setDefaultDog(id) {
+  if (!id) return;
+  await ensureDogVisible(id);
+  await saveAccountDefaults({ default_dog_id: id });
+  els.dogSelect.value = id;
+  renderAccountDogs();
+  renderDogSelect();
+  renderEntries();
+  setMessage('Standardhund gespeichert.');
+}
+
+async function ensureDogVisible(id) {
+  const dog = state.dogs.find((candidate) => candidate._id === id);
+  if (!dog || isTaxonomyVisible(dog)) return;
+  const result = await api('object-update', {
+    method: 'POST',
+    body: { type: 'dogs', id, base_revision: Number(dog._revision), object: { visible: true } },
+  });
+  state.dogs = state.dogs.map((candidate) => (candidate._id === id ? result.object : candidate));
+}
+
+async function toggleDogVisible(id, revision, visible) {
+  if (!id || !revision) return;
+  if (!visible && isTaxonomyVisible(state.dogs.find((dog) => dog._id === id) || {}) && visibleDogs().length <= 1) {
+    throw new Error('Mindestens ein Hund muss sichtbar bleiben.');
+  }
+  const wasDefault = accountDefaultDogId() === id;
+  const result = await api('object-update', {
+    method: 'POST',
+    body: { type: 'dogs', id, base_revision: revision, object: { visible } },
+  });
+  state.dogs = state.dogs.map((dog) => (dog._id === id ? result.object : dog));
+  if (!visible && wasDefault) {
+    await saveAccountDefaults({ default_dog_id: visibleDogs()[0]?._id || '' });
+  }
+  if (!visible && els.dogSelect.value === id) {
+    els.dogSelect.value = accountDefaultDogId();
+  }
+  renderAccountDogs();
+  renderDogSelect();
+  renderEntries();
+  setMessage('Hund gespeichert.');
+}
+
+async function toggleDefaultContext(id, enabled) {
+  if (!id) return;
+  if (enabled) await ensureTaxonomyVisible('contexts', id);
+  const current = accountDefaultContextIds();
+  const next = enabled
+    ? sortContextIds(current.concat(id).filter((value, index, list) => list.indexOf(value) === index))
+    : sortContextIds(current.filter((value) => value !== id));
+  await saveAccountDefaults({ default_context_ids: next });
+  if (enabled) setSelectedContexts(selectedContexts().concat(id));
+  renderAccountTaxonomy();
+  renderContextOptions();
+  setMessage('Standardkontexte gespeichert.');
+}
+
+async function ensureTaxonomyVisible(type, id) {
+  const listName = type === 'locations' ? 'locationPresets' : 'contextPresets';
+  const item = state[listName].find((candidate) => candidate._id === id);
+  if (!item || isTaxonomyVisible(item)) return;
+  const result = await api('object-update', {
+    method: 'POST',
+    body: { type, id, base_revision: Number(item._revision), object: { visible: true } },
+  });
+  state[listName] = state[listName].map((candidate) => (candidate._id === id ? result.object : candidate));
+}
+
+async function saveAccountDefaults(patch) {
+  const result = await api('account-update', { method: 'POST', body: patch });
+  state.account = result.account || null;
+  if (state.status?.auth) state.status.auth.user = result.user || state.account?.user || state.status.auth.user;
+}
+
+async function toggleTaxonomyVisible(type, id, revision, visible) {
+  if (!type || !id || !revision) return;
+  const user = currentAccountUser();
+  const wasDefaultLocation = (user.default_location_id || '') === id;
+  const wasDefaultContext = Array.isArray(user.default_context_ids) && user.default_context_ids.includes(id);
+  const result = await api('object-update', {
+    method: 'POST',
+    body: { type, id, base_revision: revision, object: { visible } },
+  });
+  const listName = type === 'locations' ? 'locationPresets' : 'contextPresets';
+  state[listName] = state[listName].map((item) => (item._id === id ? result.object : item));
+  if (!visible && type === 'locations' && wasDefaultLocation) {
+    const nextLocation = visibleLocations().find((location) => location._id !== id)?._id || '';
+    await saveAccountDefaults({ default_location_id: nextLocation });
+    if (state.location === id) state.location = accountDefaultLocationId();
+  }
+  if (!visible && type === 'contexts' && wasDefaultContext) {
+    const nextDefaults = sortContextIds((Array.isArray(user.default_context_ids) ? user.default_context_ids : []).filter((contextId) => contextId !== id));
+    await saveAccountDefaults({ default_context_ids: nextDefaults });
+    setSelectedContexts(selectedContexts().filter((contextId) => contextId !== id));
+  }
+  await loadTaxonomy();
+  await ensureDefaultLocationSaved();
+  renderAccountTaxonomy();
+  renderMeasurementControls();
+  renderEntries();
+  setMessage(type === 'locations' ? 'Ort gespeichert.' : 'Kontext gespeichert.');
 }
 
 function queueAccountProfileSave() {
@@ -841,9 +1255,10 @@ async function updateUserPermissions(input) {
 }
 
 function renderDogSelect() {
-  const selected = els.dogSelect.value || state.dogs[0]?._id || '';
-  const selectedDog = state.dogs.find((dog) => dog._id === selected) || state.dogs[0];
-  const hasMultipleDogs = state.dogs.length > 1;
+  const options = visibleDogs();
+  const selected = els.dogSelect.value || accountDefaultDogId();
+  const selectedDog = options.find((dog) => dog._id === selected) || options[0];
+  const hasMultipleDogs = options.length > 1;
   const selectedId = selectedDog?._id || '';
 
   els.dogSelectLabel.hidden = !hasMultipleDogs;
@@ -851,7 +1266,7 @@ function renderDogSelect() {
   els.dogNameDisplay.querySelector('strong').textContent = selectedDog?.name || 'Mein Hund';
   els.dogSelect.value = selectedId;
 
-  els.dogButtons.innerHTML = state.dogs.map((dog) => (
+  els.dogButtons.innerHTML = options.map((dog) => (
     pillButton({
       value: dog._id,
       label: dog.name || 'Mein Hund',
@@ -1203,6 +1618,13 @@ function renderEntryPills(options, selected, attr, field, multi = false) {
   `;
 }
 
+function taxonomyEditorOptions(items, selected) {
+  const selectedValues = Array.isArray(selected) ? selected : [selected];
+  return items
+    .filter((item) => isTaxonomyVisible(item) || selectedValues.includes(item._id))
+    .map((item) => ({ value: item._id, label: item.name }));
+}
+
 function renderEntryEditor(entry, type) {
   const entryContexts = Array.isArray(entry.context_ids) ? entry.context_ids : [];
   const breathDuration = durationForEntry(entry, 'breath');
@@ -1211,7 +1633,7 @@ function renderEntryEditor(entry, type) {
   const selectedTypes = entryMeasurementTypes(type);
   const selectedDuration = type === 'pulse' ? pulseDuration : breathDuration;
   const dogValue = entry.dog_id || state.dogs[0]?._id || '';
-  const locationValue = entry.location_id || state.location || state.locationPresets[0]?._id || '';
+  const locationValue = entry.location_id || state.location || visibleLocations()[0]?._id || '';
 
   return `
     <div class="record-edit-form" data-entry-editor="${escapeHtml(entry._id)}">
@@ -1279,7 +1701,7 @@ function renderEntryEditor(entry, type) {
       <div class="choice-block">
         <span class="control-title">Ort</span>
         ${renderEntryPills(
-          state.locationPresets.map((location) => ({ value: location._id, label: location.name })),
+          taxonomyEditorOptions(state.locationPresets, locationValue),
           locationValue,
           'data-location',
           'location_id',
@@ -1288,7 +1710,7 @@ function renderEntryEditor(entry, type) {
       <div class="choice-block">
         <span class="control-title">Kontext</span>
         ${renderEntryPills(
-          state.contextPresets.map((context) => ({ value: context._id, label: context.name })),
+          taxonomyEditorOptions(state.contextPresets, entryContexts),
           entryContexts,
           'data-context',
           'context_ids',
@@ -1675,31 +2097,61 @@ document.querySelectorAll('[data-duration]').forEach((button) => {
     renderMeasurementControls();
   });
 });
-els.addContextButton.addEventListener('click', () => addContext().catch((error) => setMessage(error.message, true)));
-els.addLocationButton.addEventListener('click', () => addLocation().catch((error) => setMessage(error.message, true)));
+els.addContextButton.addEventListener('click', () => addContextFromPrompt().catch((error) => setMessage(error.message, true)));
+els.addLocationButton.addEventListener('click', () => addLocationFromPrompt().catch((error) => setMessage(error.message, true)));
+els.showHiddenDogs.addEventListener('change', () => {
+  state.showHiddenDogs = els.showHiddenDogs.checked;
+  renderAccountDogs();
+});
+els.showHiddenContexts.addEventListener('change', () => {
+  state.showHiddenContexts = els.showHiddenContexts.checked;
+  renderAccountContextSettings();
+});
+els.showHiddenLocations.addEventListener('change', () => {
+  state.showHiddenLocations = els.showHiddenLocations.checked;
+  renderAccountLocationSettings();
+});
+els.contextCreateButton.addEventListener('click', () => addContext(true).catch((error) => setMessage(error.message, true)));
+els.locationCreateButton.addEventListener('click', () => addLocation(true).catch((error) => setMessage(error.message, true)));
 
-async function addContext() {
+async function addContextFromPrompt() {
   const value = window.prompt('Neuer Kontext');
   if (value === null) return;
   const name = value.trim();
   if (name === '') return;
-
-  const result = await api('object-create', { method: 'POST', body: { type: 'contexts', object: { name } } });
-  state.contextPresets = state.contextPresets.filter((item) => item._id !== result.object._id).concat(result.object);
-  setSelectedContexts(selectedContexts().concat(result.object._id));
-  renderContextOptions();
+  await addContext(false, name);
 }
 
-async function addLocation() {
+async function addLocationFromPrompt() {
   const value = window.prompt('Neuer Ort');
   if (value === null) return;
   const name = value.trim();
   if (name === '') return;
+  await addLocation(false, name);
+}
 
+async function addContext(focusName = false, name = 'Neuer Kontext') {
+  const result = await api('object-create', { method: 'POST', body: { type: 'contexts', object: { name } } });
+  state.contextPresets = state.contextPresets.filter((item) => item._id !== result.object._id).concat(result.object);
+  setSelectedContexts(selectedContexts().concat(result.object._id));
+  renderContextOptions();
+  renderAccountTaxonomy();
+  if (focusName) focusTaxonomyName('contexts', result.object._id);
+}
+
+async function addLocation(focusName = false, name = 'Neuer Ort') {
   const result = await api('object-create', { method: 'POST', body: { type: 'locations', object: { name } } });
   state.locationPresets = state.locationPresets.filter((item) => item._id !== result.object._id).concat(result.object);
   state.location = result.object._id;
   renderLocationOptions();
+  renderAccountTaxonomy();
+  if (focusName) focusTaxonomyName('locations', result.object._id);
+}
+
+function focusTaxonomyName(type, id) {
+  const input = document.querySelector(`[data-taxonomy-type="${type}"][data-taxonomy-id="${cssEscape(id)}"] input[name="name"]`);
+  input?.focus();
+  input?.select();
 }
 
 async function handleContextClick(context) {
