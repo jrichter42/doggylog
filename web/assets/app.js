@@ -55,6 +55,7 @@ const state = {
     contexts: [],
   },
   messageTimer: null,
+  measurementSaveFeedbackTimer: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -105,6 +106,7 @@ const els = {
   entryForm: $('entryForm'),
   saveButton: $('saveButton'),
   saveState: $('saveState'),
+  measurementSavedFeedback: $('measurementSavedFeedback'),
   recordDogFilter: $('recordDogFilter'),
   recordSingleDogName: $('recordSingleDogName'),
   recordTypeFilter: $('recordTypeFilter'),
@@ -432,6 +434,18 @@ function renderContextOptions() {
     setIconOnlyButton(addContextButton, 'plus');
     addContextButton.addEventListener('click', () => addContextFromPrompt().catch((error) => setMessage(error.message, true)));
   }
+}
+
+function showMeasurementSavedFeedback() {
+  clearTimeout(state.measurementSaveFeedbackTimer);
+  els.measurementSavedFeedback.hidden = false;
+  els.measurementSavedFeedback.classList.remove('is-visible');
+  void els.measurementSavedFeedback.offsetWidth;
+  els.measurementSavedFeedback.classList.add('is-visible');
+  state.measurementSaveFeedbackTimer = setTimeout(() => {
+    els.measurementSavedFeedback.classList.remove('is-visible');
+    els.measurementSavedFeedback.hidden = true;
+  }, 1800);
 }
 
 function selectedContexts() {
@@ -2073,6 +2087,7 @@ async function saveEntry(event) {
 
   await api('object-create', { method: 'POST', body: { type: 'vitals', object } });
   els.saveState.textContent = 'Gespeichert.';
+  showMeasurementSavedFeedback();
   els.notesInput.value = '';
   resetMeasurement();
   renderMeasurementControls();

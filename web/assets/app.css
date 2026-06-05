@@ -223,6 +223,34 @@ main > .workspace {
   background: rgba(59, 17, 22, 0.96);
 }
 
+.save-feedback {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 50;
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(134, 239, 172, 0.55);
+  border-radius: 999px;
+  background: rgba(16, 56, 49, 0.94);
+  color: var(--ok);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  font-size: 0.92rem;
+  font-weight: 950;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 0.35rem) scale(0.98);
+}
+
+.save-feedback .ui-icon {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.save-feedback.is-visible {
+  animation: save-feedback 1800ms ease both;
+}
+
 .notice span {
   display: block;
   color: var(--muted);
@@ -654,6 +682,21 @@ main > .workspace {
 @keyframes tap-ring {
   0% { opacity: 0.65; transform: scale(0.96); }
   100% { opacity: 0; transform: scale(1.02); }
+}
+
+@keyframes save-feedback {
+  0% { opacity: 0; transform: translate(-50%, 0.35rem) scale(0.98); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, 0.18rem) scale(0.99); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-feedback.is-visible {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .result {

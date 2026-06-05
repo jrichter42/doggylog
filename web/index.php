@@ -155,6 +155,7 @@ $configWarnings = array_map(
             <button class="primary" id="saveButton" type="submit" disabled data-icon="save">Messung speichern</button>
             <p id="saveState" class="muted" hidden></p>
           </form>
+          <div class="save-feedback" id="measurementSavedFeedback" aria-live="polite" hidden data-icon="check">Messung gespeichert</div>
         </section>
 
         <section class="history" id="recordsView" hidden>
@@ -171,7 +172,7 @@ $configWarnings = array_map(
                 <option value="both">Atmung + Puls</option>
               </select>
             </div>
-            <button class="record-export-button" id="recordExportButton" type="button" data-icon="download">CSV exportieren</button>
+            <button class="record-export-button" id="recordExportButton" type="button" data-icon="download">CSV</button>
           </div>
           <div id="entriesList" class="entries"></div>
           <section class="record-editor-page" id="recordEditorPage" role="dialog" aria-modal="true" aria-label="Messung bearbeiten" hidden></section>
