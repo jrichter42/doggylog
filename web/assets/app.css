@@ -283,7 +283,15 @@ main {
 }
 
 .dog-name strong {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
   font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+#dogNameDisplay .ui-icon {
+  transform: translateY(0.04em);
 }
 
 .choice-block {

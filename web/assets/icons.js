@@ -14,7 +14,7 @@ const iconPaths = {
   logOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path>',
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-10 6L2 7"></path>',
   'map-pin': '<path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle>',
-  paw: '<circle cx="11" cy="14" r="4"></circle><circle cx="6" cy="9" r="2"></circle><circle cx="10" cy="6" r="2"></circle><circle cx="14" cy="6" r="2"></circle><circle cx="18" cy="9" r="2"></circle>',
+  paw: '<ellipse cx="6.4" cy="8.9" rx="1.85" ry="2.55" transform="rotate(-25 6.4 8.9)"></ellipse><ellipse cx="10" cy="6.5" rx="1.85" ry="2.65" transform="rotate(-8 10 6.5)"></ellipse><ellipse cx="14" cy="6.5" rx="1.85" ry="2.65" transform="rotate(8 14 6.5)"></ellipse><ellipse cx="17.6" cy="8.9" rx="1.85" ry="2.55" transform="rotate(25 17.6 8.9)"></ellipse><path d="M7.2 17.2c0-2.8 2.1-5.2 4.8-5.2s4.8 2.4 4.8 5.2c0 1.9-1.1 3-2.5 3-.9 0-1.4-.5-2.3-.5s-1.4.5-2.3.5c-1.4 0-2.5-1.1-2.5-3Z"></path>',
   plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
   'rotate-ccw': '<path d="M3 2v6h6"></path><path d="M3 13a9 9 0 1 0 3-6.7L3 8"></path>',
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path>',
