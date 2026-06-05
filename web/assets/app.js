@@ -1633,17 +1633,31 @@ async function exportEntriesCsv() {
   state.contextPresets = contextsResult.objects || [];
   state.entries = entriesResult.objects || [];
   const user = account.account?.user || state.status?.auth?.user || {};
-  const headers = [
+  const currentUserId = String(user.id || '');
+  const currentUsername = String(user.username || '');
+  const currentDisplayName = String(user.display_name || '');
+  const modifiedByMeta = (value) => {
+    const id = String(value || '');
+    const matchesCurrentUser = id !== '' && (
+      id === currentUserId
+      || id === currentUsername
+    );
+    return {
+      'geändert_von_id': id,
+      'geändert_von_benutzername': matchesCurrentUser ? currentUsername : '',
+    };
+  };
+  const headerKeys = [
     'datentyp',
     'id',
     'revision',
     'erstellt',
-    'geaendert',
-    'geaendert_von',
-    'hund_name',
+    'geändert',
+    'geändert_von_id',
+    'geändert_von_benutzername',
+    'name',
+    'anzeigename',
     'hund_notizen',
-    'ort_name',
-    'kontext_name',
     'messung_hund_id',
     'messung_hund_name',
     'messung_ort_id',
@@ -1660,20 +1674,21 @@ async function exportEntriesCsv() {
     'puls_pro_minute',
     'notizen',
   ];
-  const row = (values) => headers.map((header) => values[header] ?? '');
+  const headers = headerKeys.map((header) => header.charAt(0).toUpperCase() + header.slice(1));
+  const row = (values) => headerKeys.map((header) => values[header] ?? '');
   const meta = (object) => ({
     id: object._id || '',
     revision: object._revision ?? '',
     erstellt: object._created || '',
-    geaendert: object._modified || '',
-    geaendert_von: object._modifiedBy || '',
+    'geändert': object._modified || '',
+    ...modifiedByMeta(object._modifiedBy),
   });
   const vitalsRows = state.entries.map((entry) => {
     const type = entryType(entry);
     const measuredAt = entry.measured_at || entry._created || '';
     const contextIds = Array.isArray(entry.context_ids) ? entry.context_ids : [];
     return row({
-      datentyp: 'vital',
+      datentyp: 'messung',
       ...meta(entry),
       messung_hund_id: entry.dog_id || '',
       messung_hund_name: dogLabel(entry.dog_id),
@@ -1693,21 +1708,27 @@ async function exportEntriesCsv() {
     });
   });
   const rows = [
+    row({
+      datentyp: 'benutzer',
+      id: currentUserId,
+      name: currentUsername,
+      anzeigename: currentDisplayName,
+    }),
     ...state.dogs.map((dog) => row({
-      datentyp: 'dog',
+      datentyp: 'hund',
       ...meta(dog),
-      hund_name: dog.name || '',
+      name: dog.name || '',
       hund_notizen: dog.notes || '',
     })),
     ...state.locationPresets.map((location) => row({
-      datentyp: 'location',
+      datentyp: 'ort',
       ...meta(location),
-      ort_name: location.name || '',
+      name: location.name || '',
     })),
     ...state.contextPresets.map((context) => row({
-      datentyp: 'context',
+      datentyp: 'kontext',
       ...meta(context),
-      kontext_name: context.name || '',
+      name: context.name || '',
     })),
     ...vitalsRows,
   ];
