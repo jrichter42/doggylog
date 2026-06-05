@@ -1887,14 +1887,14 @@ function renderEntryEditor(entry) {
         </div>
       `}
       <div class="choice-block">
-        <span class="control-title">Zeitpunkt</span>
+        <span class="control-title">Zeit</span>
         <div class="record-input-row record-input-row--compact">
           ${icon('clock')}
           <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
         </div>
       </div>
       <div class="choice-block">
-        <span class="control-title">Atemfrequenz</span>
+        <span class="control-title">Atmung</span>
         <label class="record-value-field">
           ${icon('wind')}
           <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="breaths_per_minute" value="${escapeHtml(entry.breaths_per_minute ?? '')}">
@@ -1902,7 +1902,7 @@ function renderEntryEditor(entry) {
         </label>
       </div>
       <div class="choice-block">
-        <span class="control-title">Pulsfrequenz</span>
+        <span class="control-title">Puls</span>
         <label class="record-value-field">
           ${icon('heart-pulse')}
           <input type="number" min="0" max="400" step="1" inputmode="numeric" data-autosave-entry="${escapeHtml(entry._id)}" data-field="pulse_per_minute" value="${escapeHtml(entry.pulse_per_minute ?? '')}">
