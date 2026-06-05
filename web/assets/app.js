@@ -1779,41 +1779,48 @@ function renderEntries() {
     const context = contextSummary(entry);
     const notes = entry.notes || entry.comment || '';
     return `
-      <article class="entry record-row">
-        <button class="entry-toggle record-grid ${hasDogColumn ? 'has-dog-column' : ''}" type="button" data-edit-entry="${escapeHtml(entry._id)}">
-          ${hasDogColumn ? `<span class="record-dog"><strong>${escapeHtml(dogLabel(entry.dog_id))}</strong></span>` : ''}
-          <span class="record-time">
-            <span>${formatDateWithRelative(entry.measured_at || entry._created)}</span>
-          </span>
-          <span class="record-value">${formatRecordValue(entry.breaths_per_minute)}</span>
-          <span class="record-value">${formatRecordValue(entry.pulse_per_minute)}</span>
-          <span>${escapeHtml(modeLabel(type, entry.mode))}</span>
-          <span>${escapeHtml(locationLabel(entry.location_id))}</span>
-          <span class="record-context">${escapeHtml(context || '')}</span>
-          <span class="record-notes">${escapeHtml(notes || '')}</span>
-        </button>
-      </article>
+      <tr class="record-row" data-edit-entry="${escapeHtml(entry._id)}" role="button" tabindex="0">
+        ${hasDogColumn ? `<td class="record-dog"><strong>${escapeHtml(dogLabel(entry.dog_id))}</strong></td>` : ''}
+        <td class="record-time">${formatDateWithRelative(entry.measured_at || entry._created)}</td>
+        <td class="record-value">${formatRecordValue(entry.breaths_per_minute)}</td>
+        <td class="record-value">${formatRecordValue(entry.pulse_per_minute)}</td>
+        <td>${escapeHtml(modeLabel(type, entry.mode))}</td>
+        <td>${escapeHtml(locationLabel(entry.location_id))}</td>
+        <td class="record-context">${escapeHtml(context || '')}</td>
+        <td class="record-notes">${escapeHtml(notes || '')}</td>
+      </tr>
     `;
   }).join('');
 
   els.entriesList.innerHTML = `
-    <div class="records-table">
-      <div class="record-grid record-head ${hasDogColumn ? 'has-dog-column' : ''}">
-        ${hasDogColumn ? sortHeader('dog', 'Hund', 'paw') : ''}
-        ${sortHeader('time', 'Zeit', 'clock')}
-        ${sortHeader('breath', 'Atmung', 'wind')}
-        ${sortHeader('pulse', 'Puls', 'heart-pulse')}
-        ${sortHeader('mode', 'Modus', 'activity')}
-        ${sortHeader('location', 'Ort', 'map-pin')}
-        ${sortHeader('context', 'Kontext', 'tag')}
-        ${sortHeader('notes', 'Notizen', 'file-text')}
-      </div>
-      ${rows}
+    <div class="records-table-wrap">
+      <table class="records-table ${hasDogColumn ? 'has-dog-column' : ''}">
+        <thead>
+          <tr class="record-head">
+            ${hasDogColumn ? `<th scope="col">${sortHeader('dog', 'Hund', 'paw')}</th>` : ''}
+            <th class="record-time-head" scope="col">${sortHeader('time', 'Zeit', 'clock')}</th>
+            <th scope="col">${sortHeader('breath', 'Atmung', 'wind')}</th>
+            <th scope="col">${sortHeader('pulse', 'Puls', 'heart-pulse')}</th>
+            <th scope="col">${sortHeader('mode', 'Modus', 'activity')}</th>
+            <th scope="col">${sortHeader('location', 'Ort', 'map-pin')}</th>
+            <th scope="col">${sortHeader('context', 'Kontext', 'tag')}</th>
+            <th scope="col">${sortHeader('notes', 'Notizen', 'file-text')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
     </div>
   `;
 
-  els.entriesList.querySelectorAll('[data-edit-entry]').forEach((button) => {
-    button.addEventListener('click', () => openEntryEditor(button.dataset.editEntry));
+  els.entriesList.querySelectorAll('[data-edit-entry]').forEach((row) => {
+    row.addEventListener('click', () => openEntryEditor(row.dataset.editEntry));
+    row.addEventListener('keydown', (event) => {
+      if (!['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      openEntryEditor(row.dataset.editEntry);
+    });
   });
   els.entriesList.querySelectorAll('[data-record-sort]').forEach((button) => {
     button.addEventListener('click', () => sortRecords(button.dataset.recordSort));
@@ -1942,7 +1949,7 @@ function renderEntryEditor(entry) {
         <textarea rows="3" data-autosave-entry="${escapeHtml(entry._id)}" data-field="notes">${escapeHtml(entry.notes || entry.comment || '')}</textarea>
       </div>
       <div class="record-editor-actions">
-        <button class="primary has-ui-icon" type="button" data-record-save>${labelWithIcon('save', 'Speichern')}</button>
+        <button class="secondary-action record-back-button has-ui-icon" type="button" data-record-back>${labelWithIcon('arrow-left', 'Zurück')}</button>
         <button class="delete-entry has-ui-icon" type="button" data-delete-entry="${escapeHtml(entry._id)}" data-revision="${entry._revision}">${labelWithIcon('trash', 'Löschen')}</button>
       </div>
     </div>
@@ -1973,8 +1980,9 @@ function renderRecordEditor() {
   }
   els.recordEditorPage.innerHTML = renderEntryEditor(entry);
   els.recordEditorPage.onclick = handleRecordEditorBackdrop;
-  els.recordEditorPage.querySelector('[data-record-back]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
-  els.recordEditorPage.querySelector('[data-record-save]')?.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
+  els.recordEditorPage.querySelectorAll('[data-record-back]').forEach((button) => {
+    button.addEventListener('click', () => closeEntryEditor().catch((error) => setMessage(error.message, true)));
+  });
   els.recordEditorPage.querySelectorAll('[data-delete-entry]').forEach((button) => {
     button.addEventListener('click', () => deleteEntry(button.dataset.deleteEntry, Number(button.dataset.revision)));
   });
@@ -2104,7 +2112,9 @@ async function deleteEntry(id, revision) {
 
 function formatDate(value) {
   if (!value) return 'Ohne Zeitpunkt';
-  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+    .format(new Date(value))
+    .replace(', ', ' ');
 }
 
 function formatDateWithRelative(value) {
