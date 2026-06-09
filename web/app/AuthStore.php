@@ -12,6 +12,7 @@ final class AuthStore
     private const MAX_ACTIVE_CHALLENGES = 1000;
     private const MAX_ACTIVE_LOGIN_CHALLENGES = 100;
     private const MAX_ACTIVE_CHALLENGES_PER_USER = 10;
+    private const MAX_ACTIVE_LOGIN_LINKS_PER_USER = 1;
 
     private string $authPath;
     private string $usersPath;
@@ -757,19 +758,21 @@ final class AuthStore
                 return $this->isRetainedLoginLink($link);
             }));
 
-            foreach ($data['links'] as $existing) {
-                if ($this->tokenMatchesUser($existing, (string) $row['user_id'])
-                    && $this->isActiveLoginLink($existing)) {
-                    return [$data, [
-                        'created' => false,
-                        'id' => (string) ($existing['id'] ?? ''),
-                        'user_id' => (string) ($existing['user_id'] ?? ''),
-                        'username' => (string) ($existing['username'] ?? ''),
-                        'email' => (string) ($existing['email'] ?? ''),
-                        'expires_at' => $existing['expires_at'] ?? null,
-                        'user' => $this->publicUser($user),
-                    ]];
-                }
+            $activeUserLinks = array_values(array_filter($data['links'], function (array $existing) use ($row): bool {
+                return $this->tokenMatchesUser($existing, (string) $row['user_id'])
+                    && $this->isActiveLoginLink($existing);
+            }));
+            if (count($activeUserLinks) >= self::MAX_ACTIVE_LOGIN_LINKS_PER_USER) {
+                $existing = $activeUserLinks[0];
+                return [$data, [
+                    'created' => false,
+                    'id' => (string) ($existing['id'] ?? ''),
+                    'user_id' => (string) ($existing['user_id'] ?? ''),
+                    'username' => (string) ($existing['username'] ?? ''),
+                    'email' => (string) ($existing['email'] ?? ''),
+                    'expires_at' => $existing['expires_at'] ?? null,
+                    'user' => $this->publicUser($user),
+                ]];
             }
 
             $data['links'][] = $row;
