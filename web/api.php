@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use DoggyLog\AuthStore;
 use DoggyLog\Http;
+use DoggyLog\RateLimitException;
 use DoggyLog\StorageConflictException;
 use DoggyLog\WebAuthn;
 
@@ -537,6 +538,8 @@ try {
         'conflict' => true,
         'current' => $exception->currentObject(),
     ], 409);
+} catch (RateLimitException $exception) {
+    Http::json(['ok' => false, 'error' => $exception->getMessage()], 429);
 } catch (InvalidArgumentException $exception) {
     Http::json(['ok' => false, 'error' => $exception->getMessage()], 400);
 } catch (Throwable $exception) {
