@@ -186,6 +186,8 @@ final class AuthStore
                 'updated_at' => $now,
                 'updated_by' => $createdBy,
                 'last_login_at' => null,
+                'deleted_at' => null,
+                'deleted_by' => null,
             ];
 
             $data['users'][] = $user;
@@ -207,6 +209,9 @@ final class AuthStore
             }
 
             $user = $data['users'][$index];
+            if ($this->isDeletedUser($user)) {
+                throw new InvalidArgumentException('Deleted users cannot be changed.');
+            }
             $user['id'] = $this->normalizeUserId((string) ($user['id'] ?? ''));
             if (array_key_exists('username', $patch)) {
                 $newUsername = $this->normalizeUsername((string) $patch['username'], false);
@@ -340,24 +345,35 @@ final class AuthStore
             }
 
             $user = $data['users'][$index];
+            if ($this->isDeletedUser($user)) {
+                throw new InvalidArgumentException('User is already deleted.');
+            }
             if ($this->sameUserIdentity($user, $deletedBy)) {
                 throw new InvalidArgumentException('You cannot delete your own user.');
             }
 
             $deletedId = (string) ($user['id'] ?? '');
-            $remainingUsers = array_values(array_filter($data['users'] ?? [], static function (array $candidate) use ($deletedId): bool {
+            $remainingUsers = array_filter($data['users'] ?? [], static function (array $candidate) use ($deletedId): bool {
                 return (string) ($candidate['id'] ?? '') !== $deletedId;
-            }));
-            $remainingManagers = array_filter($remainingUsers, static function (array $candidate): bool {
+            });
+            $remainingManagers = array_filter($remainingUsers, function (array $candidate): bool {
                 $permissions = is_array($candidate['permissions'] ?? null) ? $candidate['permissions'] : [];
-                return ($candidate['enabled'] ?? false) && in_array('manage_users', $this->normalizePermissions($permissions), true);
+                return !$this->isDeletedUser($candidate)
+                    && ($candidate['enabled'] ?? false)
+                    && in_array('manage_users', $this->normalizePermissions($permissions), true);
             });
 
             if (!$remainingManagers) {
                 throw new InvalidArgumentException('At least one user manager must remain.');
             }
 
-            $data['users'] = $remainingUsers;
+            $now = $this->now();
+            $user['enabled'] = false;
+            $user['deleted_at'] = $now;
+            $user['deleted_by'] = $deletedBy;
+            $user['updated_at'] = $now;
+            $user['updated_by'] = $deletedBy;
+            $data['users'][$index] = $user;
             return [$data, $this->publicUser($user)];
         });
 
@@ -375,6 +391,9 @@ final class AuthStore
         $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($userId, $credential): array {
             $index = $this->findUserIndex($data, $userId);
             if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+            if ($this->isDeletedUser($data['users'][$index])) {
                 throw new InvalidArgumentException('Unknown user.');
             }
 
@@ -404,6 +423,9 @@ final class AuthStore
     {
         $data = $this->readJson($this->usersPath, $this->defaultUsers());
         foreach ($data['users'] ?? [] as $user) {
+            if ($this->isDeletedUser($user)) {
+                continue;
+            }
             foreach (($user['credentials'] ?? []) as $credential) {
                 if (($credential['id'] ?? '') === $credentialId) {
                     return ['user' => $user, 'credential' => $credential];
@@ -419,6 +441,9 @@ final class AuthStore
         $this->updateJson($this->usersPath, $this->defaultUsers(), function (array $data) use ($userId, $credentialId, $signCount): array {
             $index = $this->findUserIndex($data, $userId);
             if ($index === null) {
+                throw new InvalidArgumentException('Unknown user.');
+            }
+            if ($this->isDeletedUser($data['users'][$index])) {
                 throw new InvalidArgumentException('Unknown user.');
             }
 
@@ -497,7 +522,7 @@ final class AuthStore
         }
 
         $user = $this->findUser($userId);
-        if ($user === null || !($user['enabled'] ?? false)) {
+        if ($user === null || $this->isDeletedUser($user) || !($user['enabled'] ?? false)) {
             unset($_SESSION['user_id']);
             unset($_SESSION['username']);
             return null;
@@ -513,6 +538,11 @@ final class AuthStore
      */
     public function loginUser(string $userId): array
     {
+        $loginUser = $this->findUser($userId);
+        if ($loginUser === null || $this->isDeletedUser($loginUser) || !($loginUser['enabled'] ?? false)) {
+            throw new InvalidArgumentException('Unknown user.');
+        }
+
         $this->startSession();
         session_regenerate_id(true);
         $_SESSION['user_id'] = $userId;
@@ -578,7 +608,7 @@ final class AuthStore
     public function createSetupToken(string $userId, ?string $createdBy, int $ttlHours = 168): array
     {
         $user = $this->findUser($userId);
-        if ($user === null || !($user['enabled'] ?? false)) {
+        if ($user === null || $this->isDeletedUser($user) || !($user['enabled'] ?? false)) {
             throw new InvalidArgumentException('Setup links require an active user.');
         }
 
@@ -1107,6 +1137,9 @@ final class AuthStore
         $needle = strtolower($this->normalizeEmail($email, false));
         $data = $this->readJson($this->usersPath, $this->defaultUsers());
         foreach (($data['users'] ?? []) as $user) {
+            if ($this->isDeletedUser($user)) {
+                continue;
+            }
             $candidate = strtolower(trim((string) ($user['email'] ?? '')));
             if ($candidate !== '' && hash_equals($candidate, $needle)) {
                 return $user;
@@ -1164,6 +1197,9 @@ final class AuthStore
             'username' => (string) ($user['username'] ?? ''),
             'display_name' => (string) ($user['display_name'] ?? ''),
             'enabled' => (bool) ($user['enabled'] ?? false),
+            'deleted' => $this->isDeletedUser($user),
+            'deleted_at' => $user['deleted_at'] ?? null,
+            'deleted_by' => $user['deleted_by'] ?? null,
             'permissions' => array_values(array_intersect(self::PERMISSIONS, $permissions)),
             'protected_admin' => $this->isProtectedAdmin($user),
             'credential_count' => count($user['credentials'] ?? []),
@@ -1365,7 +1401,7 @@ final class AuthStore
      */
     private function defaultUsers(): array
     {
-        return ['schema_version' => 3, 'users' => []];
+        return ['schema_version' => 4, 'users' => []];
     }
 
     /**
@@ -1605,6 +1641,14 @@ final class AuthStore
     }
 
     /**
+     * @param array<string, mixed> $user
+     */
+    private function isDeletedUser(array $user): bool
+    {
+        return is_string($user['deleted_at'] ?? null) && trim((string) $user['deleted_at']) !== '';
+    }
+
+    /**
      * @param array<string, mixed> $token
      */
     private function tokenMatchesUser(array $token, string $identity): bool
@@ -1663,7 +1707,7 @@ final class AuthStore
             }
         }
 
-        return ['schema_version' => 3, 'users' => $users];
+        return ['schema_version' => 4, 'users' => $users];
     }
 
     /**
