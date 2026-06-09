@@ -257,6 +257,24 @@ main > .workspace {
   margin-top: 0.3rem;
 }
 
+.notice.is-critical {
+  border: 3px solid #f04438;
+  background: #4a1118;
+  color: #fff;
+  font-size: 1.05rem;
+  box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.22), var(--shadow);
+}
+
+.notice.is-critical strong {
+  display: block;
+  font-size: 1.25rem;
+}
+
+.notice.is-critical span {
+  color: #fff;
+  font-weight: 800;
+}
+
 .auth-card,
 .measure-card,
 .history,

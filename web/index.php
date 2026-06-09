@@ -49,14 +49,18 @@ $configWarnings = array_map(
       </nav>
     </header>
 
-    <?php if ($configWarnings !== []): ?>
-      <aside class="notice" id="configNotice" role="alert" hidden>
+    <aside class="notice" id="configNotice" role="alert" hidden>
+      <?php if ($configWarnings !== []): ?>
         <strong>Config</strong>
         <?php foreach ($configWarnings as $warning): ?>
           <span><?= $warning ?></span>
         <?php endforeach; ?>
-      </aside>
-    <?php endif; ?>
+      <?php endif; ?>
+      <div id="accessControlWarning" hidden>
+        <strong>Sicherheitsfehler: Server-Dateien sind oeffentlich erreichbar</strong>
+        <span>Die Zugriffssperren des Webservers funktionieren nicht. Diese Installation darf nicht oeffentlich betrieben werden.</span>
+      </div>
+    </aside>
 
     <main>
       <section class="auth-card" id="authScreen" hidden>
