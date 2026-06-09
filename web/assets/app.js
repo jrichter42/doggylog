@@ -10,12 +10,21 @@ const modes = {
   pulse: sharedModes,
 };
 
-const hashView = window.location.hash.slice(1);
+const initialHash = window.location.hash.slice(1);
+const initialHashParams = new URLSearchParams(initialHash);
+const initialSetupToken = initialHashParams.get('setup') || '';
+const initialLoginToken = initialHashParams.get('login') || '';
+const hashView = ['records', 'account'].includes(initialHash) ? initialHash : 'measure';
+
+if (initialSetupToken || initialLoginToken) {
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+}
 
 const state = {
   status: null,
   accessControlAttempted: false,
   accessControlFailed: false,
+  setupToken: initialSetupToken,
   account: null,
   entries: [],
   dogs: [],
@@ -265,6 +274,7 @@ async function passkeySetup(event) {
     method: 'POST',
     body: { setup, challenge_id: options.challenge_id, credential: serializeCredential(credential) },
   });
+  state.setupToken = '';
   window.history.replaceState({}, document.title, window.location.pathname);
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
   state.emailLoginOffered = false;
@@ -356,8 +366,7 @@ function renderSecurityWarnings() {
 
 function renderShell() {
   const user = state.status?.auth?.user;
-  const params = new URLSearchParams(window.location.search);
-  const setup = params.get('setup');
+  const setup = state.setupToken;
 
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
   els.connectionStatus.hidden = !user;
@@ -2487,10 +2496,8 @@ hydrateStaticIcons();
 renderMeasurementControls();
 switchView(state.view, false);
 
-const params = new URLSearchParams(window.location.search);
-const loginToken = params.get('login');
-if (loginToken) {
-  verifyEmailLogin(loginToken).catch((error) => setMessage(error.message, true));
+if (initialLoginToken) {
+  verifyEmailLogin(initialLoginToken).catch((error) => setMessage(error.message, true));
 } else {
   refresh().catch((error) => setMessage(error.message, true));
 }

@@ -1036,7 +1036,7 @@ final class AuthStore
             throw new RuntimeException('auth.base_url must be configured before setup links can be generated.');
         }
 
-        return $this->baseUrl . '/?setup=' . rawurlencode($token);
+        return $this->baseUrl . '/#setup=' . rawurlencode($token);
     }
 
     private function loginUrl(string $token): string
@@ -1045,7 +1045,7 @@ final class AuthStore
             throw new RuntimeException('auth.base_url must be configured before login links can be generated.');
         }
 
-        return $this->baseUrl . '/?login=' . rawurlencode($token);
+        return $this->baseUrl . '/#login=' . rawurlencode($token);
     }
 
     /**
