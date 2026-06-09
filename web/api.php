@@ -106,6 +106,18 @@ try {
             $authStatus = $auth->status();
             $includeCounts = ($_GET['counts'] ?? '1') !== '0';
             $currentUser = is_array($authStatus['user'] ?? null) ? $authStatus['user'] : null;
+            if ($currentUser === null) {
+                Http::json([
+                    'ok' => true,
+                    'auth' => [
+                        'user' => null,
+                    ],
+                    'mail' => [
+                        'login_enabled' => $mailer->isLoginEnabled(),
+                    ],
+                ]);
+            }
+
             $userId = $currentUser !== null ? (string) ($currentUser['id'] ?? '') : null;
             Http::json([
                 'ok' => true,
