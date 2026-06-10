@@ -49,14 +49,18 @@ $configWarnings = array_map(
       </nav>
     </header>
 
-    <?php if ($configWarnings !== []): ?>
-      <aside class="notice" id="configNotice" role="alert" hidden>
+    <aside class="notice" id="configNotice" role="alert" hidden>
+      <?php if ($configWarnings !== []): ?>
         <strong>Config</strong>
         <?php foreach ($configWarnings as $warning): ?>
           <span><?= $warning ?></span>
         <?php endforeach; ?>
-      </aside>
-    <?php endif; ?>
+      <?php endif; ?>
+      <div id="accessControlWarning" hidden>
+        <strong>Sicherheitsfehler: Server-Dateien sind öffentlich erreichbar</strong>
+        <span>Die Website sollte nicht öffentlich betrieben werden. Prüfe, ob Apache die `.htaccess`-Dateien verarbeitet und Zugriffe auf `/app`, `/config`, `/data`, `/var` sowie `/bootstrap_setup.txt` mit HTTP 403 oder 404 ablehnt. Lade die Website nach der Korrektur neu.</span>
+      </div>
+    </aside>
 
     <main>
       <section class="auth-card" id="authScreen" hidden>

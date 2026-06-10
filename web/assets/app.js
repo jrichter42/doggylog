@@ -14,6 +14,8 @@ const hashView = window.location.hash.slice(1);
 
 const state = {
   status: null,
+  accessControlAttempted: false,
+  accessControlFailed: false,
   account: null,
   entries: [],
   dogs: [],
@@ -65,6 +67,7 @@ const els = {
   connectionStatus: $('connectionStatus'),
   topTabs: $('topTabs'),
   configNotice: $('configNotice'),
+  accessControlWarning: $('accessControlWarning'),
   loginButton: $('loginButton'),
   authScreen: $('authScreen'),
   setupForm: $('setupForm'),
@@ -300,6 +303,7 @@ async function verifyEmailLogin(token) {
 async function refresh() {
   state.status = await api('status');
   renderShell();
+  await verifyAccessControls();
   renderMeasurementControls();
   if (state.status.auth?.user) {
     await loadDogs();
@@ -314,6 +318,42 @@ async function refresh() {
   }
 }
 
+async function verifyAccessControls() {
+  const check = state.status?.auth?.access_control_check;
+  state.accessControlFailed = check?.passed === false;
+  renderSecurityWarnings();
+  if (!state.status?.auth?.user || check?.due !== true || state.accessControlAttempted) return;
+  state.accessControlAttempted = true;
+
+  let passed = false;
+  try {
+    const response = await fetch('config/app.json', {
+      method: 'HEAD',
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    passed = response.status === 403 || response.status === 404;
+  } catch {}
+
+  state.accessControlFailed = !passed;
+  renderSecurityWarnings();
+  const result = await api('access-control-check', {
+    method: 'POST',
+    body: { passed },
+  });
+  state.status.auth.access_control_check = result.access_control_check;
+  state.accessControlFailed = result.access_control_check?.passed === false;
+  renderSecurityWarnings();
+}
+
+function renderSecurityWarnings() {
+  if (!els.configNotice || !els.accessControlWarning) return;
+  const user = state.status?.auth?.user;
+  els.accessControlWarning.hidden = !state.accessControlFailed;
+  els.configNotice.classList.toggle('is-critical', state.accessControlFailed);
+  els.configNotice.hidden = !user || (!state.accessControlFailed && els.configNotice.children.length === 1);
+}
+
 function renderShell() {
   const user = state.status?.auth?.user;
   const params = new URLSearchParams(window.location.search);
@@ -322,7 +362,7 @@ function renderShell() {
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
   els.connectionStatus.hidden = !user;
   els.topTabs.hidden = !user;
-  if (els.configNotice) els.configNotice.hidden = !user;
+  renderSecurityWarnings();
   els.authScreen.hidden = Boolean(user);
   els.workspace.hidden = !user;
   els.loginButton.hidden = Boolean(user);
