@@ -15,6 +15,7 @@ final class AuthStore
     private string $tokensPath;
     private string $challengesPath;
     private string $loginLinksPath;
+    private string $accessControlCheckPath;
     private string $auditPath;
     private string $bootstrapPath;
     private string $initialAdminUsername = 'admin';
@@ -33,6 +34,7 @@ final class AuthStore
         $this->tokensPath = $this->authPath . '/setup_tokens.json';
         $this->challengesPath = $this->authPath . '/challenges.json';
         $this->loginLinksPath = $this->authPath . '/login_links.json';
+        $this->accessControlCheckPath = $this->authPath . '/access_control_check.json';
         $this->auditPath = $this->authPath . '/audit.jsonl';
         $this->bootstrapPath = $basePath . '/bootstrap_setup.txt';
         $this->configureInitialAdmin($config);
@@ -53,6 +55,49 @@ final class AuthStore
             'has_users' => $this->hasUsers(),
             'bootstrap_pending' => $this->bootstrapPending(),
             'setup_url_hint' => $this->bootstrapPending() ? 'Read bootstrap_setup.txt on the server.' : null,
+            'access_control_check' => $user !== null ? $this->accessControlCheckStatus() : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function recordAccessControlCheck(bool $passed): array
+    {
+        $checkedAt = $this->now();
+        return $this->updateJson(
+            $this->accessControlCheckPath,
+            $this->defaultAccessControlCheck(),
+            static function (array $data) use ($passed, $checkedAt): array {
+                $data['schema_version'] = 1;
+                $data['passed'] = $passed;
+                $data['checked_at'] = $checkedAt;
+                return [$data, [
+                    'passed' => $passed,
+                    'checked_at' => $checkedAt,
+                    'due' => !$passed,
+                ]];
+            }
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function accessControlCheckStatus(): array
+    {
+        $check = $this->readJson($this->accessControlCheckPath, $this->defaultAccessControlCheck());
+        $passed = is_bool($check['passed'] ?? null) ? $check['passed'] : null;
+        $checkedAt = is_string($check['checked_at'] ?? null) ? $check['checked_at'] : null;
+        $checkedTimestamp = $checkedAt !== null ? strtotime($checkedAt) : false;
+        $due = $passed !== true
+            || $checkedTimestamp === false
+            || $checkedTimestamp <= time() - 86400;
+
+        return [
+            'passed' => $passed,
+            'checked_at' => $checkedAt,
+            'due' => $due,
         ];
     }
 
@@ -908,6 +953,7 @@ final class AuthStore
         $this->ensureJsonFile($this->tokensPath, $this->defaultTokens());
         $this->ensureJsonFile($this->challengesPath, $this->defaultChallenges());
         $this->ensureJsonFile($this->loginLinksPath, $this->defaultLoginLinks());
+        $this->ensureJsonFile($this->accessControlCheckPath, $this->defaultAccessControlCheck());
     }
 
     /**
@@ -1313,6 +1359,18 @@ final class AuthStore
     private function defaultLoginLinks(): array
     {
         return ['schema_version' => 2, 'links' => []];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function defaultAccessControlCheck(): array
+    {
+        return [
+            'schema_version' => 1,
+            'passed' => null,
+            'checked_at' => null,
+        ];
     }
 
     /**

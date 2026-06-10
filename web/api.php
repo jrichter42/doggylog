@@ -124,6 +124,20 @@ try {
             ]);
             break;
 
+        case 'access-control-check':
+            Http::requireMethod('POST');
+            require_user($auth);
+            $body = Http::readJsonBody();
+            require_csrf($auth, $body);
+            if (!is_bool($body['passed'] ?? null)) {
+                Http::json(['ok' => false, 'error' => 'Access-control result is required'], 400);
+            }
+            Http::json([
+                'ok' => true,
+                'access_control_check' => $auth->recordAccessControlCheck($body['passed']),
+            ]);
+            break;
+
         case 'objects':
             Http::requireMethod('GET');
             $user = require_user($auth);

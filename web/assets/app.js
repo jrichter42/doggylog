@@ -14,7 +14,7 @@ const hashView = window.location.hash.slice(1);
 
 const state = {
   status: null,
-  accessControlChecked: false,
+  accessControlAttempted: false,
   accessControlFailed: false,
   account: null,
   entries: [],
@@ -319,20 +319,30 @@ async function refresh() {
 }
 
 async function verifyAccessControls() {
-  if (!state.status?.auth?.user || state.accessControlChecked) return;
-  state.accessControlChecked = true;
+  const check = state.status?.auth?.access_control_check;
+  state.accessControlFailed = check?.passed === false;
+  renderSecurityWarnings();
+  if (!state.status?.auth?.user || check?.due !== true || state.accessControlAttempted) return;
+  state.accessControlAttempted = true;
 
+  let passed = false;
   try {
     const response = await fetch('config/app.json', {
       method: 'HEAD',
       cache: 'no-store',
       credentials: 'same-origin',
     });
-    state.accessControlFailed = response.ok;
-  } catch {
-    state.accessControlFailed = false;
-  }
+    passed = response.status === 403 || response.status === 404;
+  } catch {}
 
+  state.accessControlFailed = !passed;
+  renderSecurityWarnings();
+  const result = await api('access-control-check', {
+    method: 'POST',
+    body: { passed },
+  });
+  state.status.auth.access_control_check = result.access_control_check;
+  state.accessControlFailed = result.access_control_check?.passed === false;
   renderSecurityWarnings();
 }
 

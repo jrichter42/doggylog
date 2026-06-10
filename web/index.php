@@ -57,8 +57,8 @@ $configWarnings = array_map(
         <?php endforeach; ?>
       <?php endif; ?>
       <div id="accessControlWarning" hidden>
-        <strong>Sicherheitsfehler: Server-Dateien sind oeffentlich erreichbar</strong>
-        <span>Die Zugriffssperren des Webservers funktionieren nicht. Diese Installation darf nicht oeffentlich betrieben werden.</span>
+        <strong>Sicherheitsfehler: Server-Dateien sind öffentlich erreichbar</strong>
+        <span>Die Zugriffssperren des Webservers funktionieren nicht. Diese Installation darf nicht öffentlich betrieben werden.</span>
       </div>
     </aside>
 
