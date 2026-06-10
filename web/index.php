@@ -58,7 +58,7 @@ $configWarnings = array_map(
       <?php endif; ?>
       <div id="accessControlWarning" hidden>
         <strong>Sicherheitsfehler: Server-Dateien sind öffentlich erreichbar</strong>
-        <span>Die Zugriffssperren des Webservers funktionieren nicht. Diese Installation darf nicht öffentlich betrieben werden.</span>
+        <span>Die Website sollte nicht öffentlich betrieben werden. Prüfe, ob Apache die `.htaccess`-Dateien verarbeitet und Zugriffe auf `/app`, `/config`, `/data`, `/var` sowie `/bootstrap_setup.txt` mit HTTP 403 oder 404 ablehnt. Lade die Website nach der Korrektur neu.</span>
       </div>
     </aside>
 
