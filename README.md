@@ -7,7 +7,7 @@ Mobile PHP-Webseite zum Erfassen von Atemfrequenz und Puls eines Hundes.
 - Inhalte aus `web/` auf einen PHP-8-Host deployen.
 - `web/config/app.json` anpassen: `auth.base_url` muss die oeffentliche URL sein.
 - Erster Start erzeugt `web/bootstrap_setup.txt`; den Setup-Link daraus oeffnen und einen Passkey registrieren.
-- Login laeuft per Passkey, optional per E-Mail-Link wenn `mail.enabled` konfiguriert ist. Setup- und Login-Tokens stehen im URL-Fragment und werden nicht an den Webserver gesendet.
+- Login laeuft per Passkey, optional per E-Mail-Link wenn `mail.enabled` konfiguriert ist. Neue Setup- und Login-Tokens stehen im URL-Fragment und werden nicht an den Webserver gesendet. Bestehende Query-Links werden einmalig weiter akzeptiert und sofort aus der Adresszeile entfernt.
 
 ## Daten
 
