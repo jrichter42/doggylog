@@ -8,6 +8,7 @@ $app = require __DIR__ . '/app/bootstrap.php';
 $config = $app['config'];
 $version = htmlspecialchars((string) $app['version'], ENT_QUOTES, 'UTF-8');
 $appName = htmlspecialchars((string) $config['name'], ENT_QUOTES, 'UTF-8');
+$appJsVersion = (string) (filemtime(__DIR__ . '/assets/app.js') ?: $app['version']);
 $configWarnings = array_map(
     static fn (string $warning): string => htmlspecialchars($warning, ENT_QUOTES, 'UTF-8'),
     $config['show_warnings'] ? ($config['warnings'] ?? []) : []
@@ -263,6 +264,6 @@ $configWarnings = array_map(
       </section>
     </main>
     <script src="assets/icons.js"></script>
-    <script type="module" src="assets/app.js"></script>
+    <script type="module" src="assets/app.js?v=<?= rawurlencode($appJsVersion) ?>"></script>
   </body>
 </html>

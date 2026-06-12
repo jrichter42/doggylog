@@ -10,12 +10,21 @@ const modes = {
   pulse: sharedModes,
 };
 
-const hashView = window.location.hash.slice(1);
+const initialHash = window.location.hash.slice(1);
+const initialHashParams = new URLSearchParams(initialHash);
+const initialSetupToken = initialHashParams.get('setup') || '';
+const initialLoginToken = initialHashParams.get('login') || '';
+const hashView = ['records', 'account'].includes(initialHash) ? initialHash : 'measure';
+
+if (initialSetupToken || initialLoginToken) {
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+}
 
 const state = {
   status: null,
   accessControlAttempted: false,
   accessControlFailed: false,
+  setupToken: initialSetupToken,
   account: null,
   entries: [],
   dogs: [],
@@ -265,6 +274,7 @@ async function passkeySetup(event) {
     method: 'POST',
     body: { setup, challenge_id: options.challenge_id, credential: serializeCredential(credential) },
   });
+  state.setupToken = '';
   window.history.replaceState({}, document.title, window.location.pathname);
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
   state.emailLoginOffered = false;
@@ -298,6 +308,27 @@ async function verifyEmailLogin(token) {
   state.status = { ...(state.status || {}), auth: { ...(state.status?.auth || {}), user: result.user, csrf: result.csrf } };
   state.emailLoginOffered = false;
   await refresh();
+}
+
+async function handleAuthFragment() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const setupToken = params.get('setup') || '';
+  const loginToken = params.get('login') || '';
+  if (!setupToken && !loginToken) return;
+
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+  if (setupToken) {
+    state.setupToken = setupToken;
+    if (state.status === null) {
+      await refresh();
+    } else {
+      renderShell();
+    }
+    return;
+  }
+
+  state.setupToken = '';
+  await verifyEmailLogin(loginToken);
 }
 
 async function refresh() {
@@ -356,18 +387,17 @@ function renderSecurityWarnings() {
 
 function renderShell() {
   const user = state.status?.auth?.user;
-  const params = new URLSearchParams(window.location.search);
-  const setup = params.get('setup');
+  const setup = state.setupToken;
 
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
   els.connectionStatus.hidden = !user;
-  els.topTabs.hidden = !user;
+  els.topTabs.hidden = !user || Boolean(setup);
   renderSecurityWarnings();
-  els.authScreen.hidden = Boolean(user);
-  els.workspace.hidden = !user;
+  els.authScreen.hidden = Boolean(user) && !setup;
+  els.workspace.hidden = !user || Boolean(setup);
   els.loginButton.hidden = Boolean(user);
-  els.setupForm.hidden = !setup || Boolean(user);
-  els.loginPanel.hidden = Boolean(setup) && !user;
+  els.setupForm.hidden = !setup;
+  els.loginPanel.hidden = Boolean(setup);
   els.setupInput.value = setup || '';
   const canUseEmailLogin = Boolean(state.status?.mail?.login_enabled);
   const shouldOfferEmailLogin = state.emailLoginOffered || !passkeysAvailable();
@@ -1375,7 +1405,7 @@ async function loadUsers() {
             <input name="manage_users" type="checkbox" value="1" ${canManageUsers ? 'checked' : ''} ${permissionLocked ? 'disabled' : ''}>
             Kann Benutzer verwalten
           </label>
-          <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}">
+          <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}" ${user.enabled ? '' : 'disabled'}>
             ${labelWithIcon('link', 'Setup-Link erstellen')}
           </button>
           <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
@@ -2486,11 +2516,12 @@ els.showDisabledUsers.addEventListener('change', () => {
 hydrateStaticIcons();
 renderMeasurementControls();
 switchView(state.view, false);
+window.addEventListener('hashchange', () => {
+  handleAuthFragment().catch((error) => setMessage(error.message, true));
+});
 
-const params = new URLSearchParams(window.location.search);
-const loginToken = params.get('login');
-if (loginToken) {
-  verifyEmailLogin(loginToken).catch((error) => setMessage(error.message, true));
+if (initialLoginToken) {
+  verifyEmailLogin(initialLoginToken).catch((error) => setMessage(error.message, true));
 } else {
   refresh().catch((error) => setMessage(error.message, true));
 }
