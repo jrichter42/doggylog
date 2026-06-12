@@ -9,6 +9,10 @@ use RuntimeException;
 final class AuthStore
 {
     public const PERMISSIONS = ['manage_users'];
+    private const MAX_ACTIVE_CHALLENGES = 1000;
+    private const MAX_ACTIVE_LOGIN_CHALLENGES = 100;
+    private const MAX_ACTIVE_CHALLENGES_PER_USER = 10;
+    private const MAX_ACTIVE_LOGIN_LINKS_PER_USER = 1;
 
     private string $authPath;
     private string $usersPath;
@@ -754,19 +758,21 @@ final class AuthStore
                 return $this->isRetainedLoginLink($link);
             }));
 
-            foreach ($data['links'] as $existing) {
-                if ($this->tokenMatchesUser($existing, (string) $row['user_id'])
-                    && $this->isActiveLoginLink($existing)) {
-                    return [$data, [
-                        'created' => false,
-                        'id' => (string) ($existing['id'] ?? ''),
-                        'user_id' => (string) ($existing['user_id'] ?? ''),
-                        'username' => (string) ($existing['username'] ?? ''),
-                        'email' => (string) ($existing['email'] ?? ''),
-                        'expires_at' => $existing['expires_at'] ?? null,
-                        'user' => $this->publicUser($user),
-                    ]];
-                }
+            $activeUserLinks = array_values(array_filter($data['links'], function (array $existing) use ($row): bool {
+                return $this->tokenMatchesUser($existing, (string) $row['user_id'])
+                    && $this->isActiveLoginLink($existing);
+            }));
+            if (count($activeUserLinks) >= self::MAX_ACTIVE_LOGIN_LINKS_PER_USER) {
+                $existing = $activeUserLinks[0];
+                return [$data, [
+                    'created' => false,
+                    'id' => (string) ($existing['id'] ?? ''),
+                    'user_id' => (string) ($existing['user_id'] ?? ''),
+                    'username' => (string) ($existing['username'] ?? ''),
+                    'email' => (string) ($existing['email'] ?? ''),
+                    'expires_at' => $existing['expires_at'] ?? null,
+                    'user' => $this->publicUser($user),
+                ]];
             }
 
             $data['links'][] = $row;
@@ -882,6 +888,31 @@ final class AuthStore
             $data['challenges'] = array_values(array_filter($data['challenges'] ?? [], function (array $challenge): bool {
                 return $this->isActiveChallenge($challenge);
             }));
+
+            if (count($data['challenges']) >= self::MAX_ACTIVE_CHALLENGES) {
+                throw new RateLimitException('Too many active authentication challenges. Try again later.');
+            }
+
+            if ($row['purpose'] === 'login') {
+                $activeLoginChallenges = array_filter($data['challenges'], static function (array $challenge): bool {
+                    return ($challenge['purpose'] ?? '') === 'login';
+                });
+                if (count($activeLoginChallenges) >= self::MAX_ACTIVE_LOGIN_CHALLENGES) {
+                    throw new RateLimitException('Too many active login attempts. Try again later.');
+                }
+            }
+
+            $userId = trim((string) ($row['context']['user_id'] ?? ''));
+            if ($userId !== '') {
+                $activeUserChallenges = array_filter($data['challenges'], static function (array $challenge) use ($userId): bool {
+                    $context = is_array($challenge['context'] ?? null) ? $challenge['context'] : [];
+                    return (string) ($context['user_id'] ?? '') === $userId;
+                });
+                if (count($activeUserChallenges) >= self::MAX_ACTIVE_CHALLENGES_PER_USER) {
+                    throw new RateLimitException('Too many active authentication challenges for this user. Try again later.');
+                }
+            }
+
             $data['challenges'][] = $row;
             return [$data, null];
         });

@@ -5,6 +5,8 @@ namespace DoggyLog;
 
 final class Http
 {
+    private const MAX_JSON_BODY_BYTES = 65536;
+
     public static function configureSession(): void
     {
         if (session_status() !== PHP_SESSION_NONE) {
@@ -37,9 +39,17 @@ final class Http
      */
     public static function readJsonBody(): array
     {
-        $raw = file_get_contents('php://input');
+        $contentLength = filter_var($_SERVER['CONTENT_LENGTH'] ?? null, FILTER_VALIDATE_INT);
+        if (is_int($contentLength) && $contentLength > self::MAX_JSON_BODY_BYTES) {
+            self::json(['ok' => false, 'error' => 'Request body too large'], 413);
+        }
+
+        $raw = file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1);
         if ($raw === false || trim($raw) === '') {
             return [];
+        }
+        if (strlen($raw) > self::MAX_JSON_BODY_BYTES) {
+            self::json(['ok' => false, 'error' => 'Request body too large'], 413);
         }
 
         try {
