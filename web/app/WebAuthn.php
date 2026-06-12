@@ -29,18 +29,11 @@ final class WebAuthn
     public static function fromRequest(array $config): self
     {
         $authConfig = is_array($config['auth'] ?? null) ? $config['auth'] : [];
-        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-        $hostWithoutPort = preg_replace('/:\d+$/', '', $host) ?: 'localhost';
-        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
-        $scheme = $https ? 'https' : 'http';
-
-        $rpId = is_string($authConfig['rp_id'] ?? null) && $authConfig['rp_id'] !== ''
-            ? strtolower($authConfig['rp_id'])
-            : $hostWithoutPort;
-        $origin = is_string($authConfig['origin'] ?? null) && $authConfig['origin'] !== ''
-            ? rtrim($authConfig['origin'], '/')
-            : $scheme . '://' . $host;
+        $rpId = is_string($authConfig['rp_id'] ?? null) ? strtolower(trim($authConfig['rp_id'])) : '';
+        $origin = is_string($authConfig['origin'] ?? null) ? rtrim(trim($authConfig['origin']), '/') : '';
+        if ($rpId === '' || $origin === '') {
+            throw new InvalidArgumentException('WebAuthn origin and RP ID are not configured.');
+        }
         $rpName = (string) ($config['name'] ?? 'Doggy Log');
 
         return new self($rpId, $origin, $rpName);

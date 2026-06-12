@@ -29,6 +29,7 @@ date_default_timezone_set('UTC');
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
 
+Http::enforceProductionSecurity($config);
 Http::configureSession();
 
 $storage = new Storage(DOGGYLOG_BASE_PATH);

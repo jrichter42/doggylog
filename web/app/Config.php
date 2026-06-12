@@ -60,11 +60,44 @@ final class Config
 
         $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
         $baseUrl = is_string($auth['base_url'] ?? null) ? rtrim(trim($auth['base_url']), '/') : '';
-        if ($baseUrl === '' || filter_var($baseUrl, FILTER_VALIDATE_URL) === false) {
-            $config['warnings'][] = 'auth.base_url must be set to the public app URL in config/app.json before setup links can be generated.';
+        if ($baseUrl === '' || filter_var($baseUrl, FILTER_VALIDATE_URL) === false || parse_url($baseUrl, PHP_URL_SCHEME) !== 'https') {
+            $config['warnings'][] = 'auth.base_url must be set to the public HTTPS app URL in config/app.json before setup links can be generated.';
         } else {
             $config['auth']['base_url'] = $baseUrl;
         }
+
+        $origin = is_string($auth['origin'] ?? null) ? rtrim(trim($auth['origin']), '/') : '';
+        if ($origin === '' || filter_var($origin, FILTER_VALIDATE_URL) === false || parse_url($origin, PHP_URL_SCHEME) !== 'https') {
+            $config['warnings'][] = 'auth.origin must be set to the public HTTPS origin.';
+        } else {
+            $config['auth']['origin'] = $origin;
+        }
+
+        $rpId = is_string($auth['rp_id'] ?? null) ? strtolower(trim($auth['rp_id'])) : '';
+        if ($rpId === '' || filter_var($rpId, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+            $config['warnings'][] = 'auth.rp_id must be set to the public WebAuthn domain.';
+        } else {
+            $config['auth']['rp_id'] = $rpId;
+        }
+
+        $allowedHosts = is_array($auth['allowed_hosts'] ?? null) ? $auth['allowed_hosts'] : [];
+        $allowedHosts = array_values(array_unique(array_filter(array_map(static function ($host): string {
+            return is_string($host) ? strtolower(trim($host)) : '';
+        }, $allowedHosts), static function (string $host): bool {
+            return $host !== '' && filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false;
+        })));
+        $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
+        if ($allowedHosts === [] || $originHost === '' || !in_array($originHost, $allowedHosts, true)) {
+            $config['warnings'][] = 'auth.allowed_hosts must contain the hostname from auth.origin.';
+        }
+        $config['auth']['allowed_hosts'] = $allowedHosts;
+
+        $trustedProxies = is_array($auth['trusted_proxies'] ?? null) ? $auth['trusted_proxies'] : [];
+        $config['auth']['trusted_proxies'] = array_values(array_unique(array_filter(array_map(static function ($address): string {
+            return is_string($address) ? trim($address) : '';
+        }, $trustedProxies), static function (string $address): bool {
+            return filter_var($address, FILTER_VALIDATE_IP) !== false;
+        })));
 
         $mail = is_array($config['mail'] ?? null) ? $config['mail'] : $defaults['mail'];
         $mail['enabled'] = (bool) ($mail['enabled'] ?? false);

@@ -4,6 +4,12 @@
   "show_warnings": true,
   "auth": {
     "base_url": "https://doggylog.kimvosen.de",
+    "origin": "https://doggylog.kimvosen.de",
+    "rp_id": "doggylog.kimvosen.de",
+    "allowed_hosts": [
+      "doggylog.kimvosen.de"
+    ],
+    "trusted_proxies": [],
     "login_link_ttl_seconds": 600,
     "initial_admin_username": "admin"
   },
