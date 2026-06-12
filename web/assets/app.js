@@ -405,7 +405,9 @@ function renderShell() {
   els.passkeyLoginButton.disabled = !passkeysAvailable();
   els.setupForm.querySelector('button[type="submit"]').disabled = !passkeysAvailable();
 
-  if (!user && !passkeysAvailable()) {
+  if (state.status.auth?.bootstrap_pending && !setup && !user) {
+    setMessage('Initiales Setup offen. Lies bootstrap_setup.txt auf dem Server.', false);
+  } else if (!user && !passkeysAvailable()) {
     state.emailLoginOffered = canUseEmailLogin;
     setMessage('Passkeys hier nicht verfügbar. Nutze HTTPS und normalen Browser, keinen In-App-Browser.', true);
     els.loginEmailForm.hidden = !canUseEmailLogin || Boolean(user);

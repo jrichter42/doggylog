@@ -111,6 +111,7 @@ try {
                     'ok' => true,
                     'auth' => [
                         'user' => null,
+                        'bootstrap_pending' => (bool) ($authStatus['bootstrap_pending'] ?? false),
                     ],
                     'mail' => [
                         'login_enabled' => $mailer->isLoginEnabled(),
