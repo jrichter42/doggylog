@@ -24,10 +24,7 @@ final class Mailer
         $this->replyTo = $this->cleanHeader((string) ($mail['reply_to'] ?? ''));
         $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link für Doggy Log'));
         $this->timezone = is_string($config['timezone'] ?? null) ? $config['timezone'] : 'UTC';
-        $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
-        $this->loginLinkTtlSeconds = is_numeric($auth['login_link_ttl_seconds'] ?? null)
-            ? max(60, min(3600, (int) $auth['login_link_ttl_seconds']))
-            : 600;
+        $this->loginLinkTtlSeconds = Config::loginLinkTtlSeconds($config);
         $this->enabled = (bool) ($mail['enabled'] ?? false)
             && filter_var($this->fromAddress, FILTER_VALIDATE_EMAIL) !== false;
     }

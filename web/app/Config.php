@@ -7,6 +7,23 @@ use RuntimeException;
 
 final class Config
 {
+    public const LOGIN_LINK_TTL_MIN_SECONDS = 60;
+    public const LOGIN_LINK_TTL_MAX_SECONDS = 3600;
+    public const LOGIN_LINK_TTL_DEFAULT_SECONDS = 600;
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function loginLinkTtlSeconds(array $config): int
+    {
+        $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+        $configured = is_numeric($auth['login_link_ttl_seconds'] ?? null)
+            ? (int) $auth['login_link_ttl_seconds']
+            : self::LOGIN_LINK_TTL_DEFAULT_SECONDS;
+
+        return max(self::LOGIN_LINK_TTL_MIN_SECONDS, min(self::LOGIN_LINK_TTL_MAX_SECONDS, $configured));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -16,7 +33,9 @@ final class Config
             'name' => 'Doggy Log',
             'timezone' => 'UTC',
             'show_warnings' => true,
-            'auth' => [],
+            'auth' => [
+                'login_link_ttl_seconds' => self::LOGIN_LINK_TTL_DEFAULT_SECONDS,
+            ],
             'mail' => [
                 'enabled' => true,
                 'from_address' => '',
@@ -59,6 +78,7 @@ final class Config
         }
 
         $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+        $config['auth']['login_link_ttl_seconds'] = self::loginLinkTtlSeconds($config);
         $baseUrl = is_string($auth['base_url'] ?? null) ? rtrim(trim($auth['base_url']), '/') : '';
         if ($baseUrl === '' || filter_var($baseUrl, FILTER_VALIDATE_URL) === false || parse_url($baseUrl, PHP_URL_SCHEME) !== 'https') {
             $config['warnings'][] = 'auth.base_url must be set to the public HTTPS app URL in config/app.json before setup links can be generated.';

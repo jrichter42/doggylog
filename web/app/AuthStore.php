@@ -24,7 +24,7 @@ final class AuthStore
     private string $bootstrapPath;
     private string $initialAdminUsername = 'admin';
     private ?string $baseUrl = null;
-    private int $loginLinkTtlSeconds = 600;
+    private int $loginLinkTtlSeconds;
     private bool $emailLoginAvailable = false;
 
     /**
@@ -1032,9 +1032,7 @@ final class AuthStore
             $this->baseUrl = rtrim(trim($authConfig['base_url']), '/');
         }
 
-        if (is_numeric($authConfig['login_link_ttl_seconds'] ?? null)) {
-            $this->loginLinkTtlSeconds = max(60, min(3600, (int) $authConfig['login_link_ttl_seconds']));
-        }
+        $this->loginLinkTtlSeconds = Config::loginLinkTtlSeconds($config);
 
         $mailConfig = is_array($config['mail'] ?? null) ? $config['mail'] : [];
         $this->emailLoginAvailable = (bool) ($mailConfig['enabled'] ?? false)
