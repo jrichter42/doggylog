@@ -8,7 +8,7 @@ use DoggyLog\Mailer;
 use DoggyLog\Storage;
 
 define('DOGGYLOG_BASE_PATH', dirname(__DIR__));
-define('DOGGYLOG_VERSION', '0.1.0');
+define('DOGGYLOG_VERSION', '1.0.0');
 
 spl_autoload_register(static function (string $class): void {
     $prefix = 'DoggyLog\\';
