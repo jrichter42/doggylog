@@ -13,13 +13,11 @@ const modes = {
 const initialUrl = new URL(window.location.href);
 const initialHash = initialUrl.hash.slice(1);
 const initialHashParams = new URLSearchParams(initialHash);
-const initialSetupToken = initialHashParams.get('setup') || initialUrl.searchParams.get('setup') || '';
-const initialLoginToken = initialHashParams.get('login') || initialUrl.searchParams.get('login') || '';
+const initialSetupToken = initialHashParams.get('setup') || '';
+const initialLoginToken = initialHashParams.get('login') || '';
 const hashView = ['records', 'account'].includes(initialHash) ? initialHash : 'measure';
 
 if (initialSetupToken || initialLoginToken) {
-  initialUrl.searchParams.delete('setup');
-  initialUrl.searchParams.delete('login');
   initialUrl.hash = '';
   window.history.replaceState({}, document.title, `${initialUrl.pathname}${initialUrl.search}`);
 }
