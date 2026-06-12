@@ -1405,7 +1405,7 @@ async function loadUsers() {
             <input name="manage_users" type="checkbox" value="1" ${canManageUsers ? 'checked' : ''} ${permissionLocked ? 'disabled' : ''}>
             Kann Benutzer verwalten
           </label>
-          <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}">
+          <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}" ${user.enabled ? '' : 'disabled'}>
             ${labelWithIcon('link', 'Setup-Link erstellen')}
           </button>
           <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>

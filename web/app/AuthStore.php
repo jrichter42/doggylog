@@ -574,8 +574,8 @@ final class AuthStore
     public function createSetupToken(string $userId, ?string $createdBy, int $ttlHours = 168): array
     {
         $user = $this->findUser($userId);
-        if ($user === null) {
-            throw new InvalidArgumentException('Unknown user.');
+        if ($user === null || !($user['enabled'] ?? false)) {
+            throw new InvalidArgumentException('Setup links require an active user.');
         }
 
         $userId = (string) $user['id'];
