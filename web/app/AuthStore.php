@@ -186,8 +186,7 @@ final class AuthStore
                 'updated_at' => $now,
                 'updated_by' => $createdBy,
                 'last_login_at' => null,
-                'deleted_at' => null,
-                'deleted_by' => null,
+                'deleted' => false,
             ];
 
             $data['users'][] = $user;
@@ -369,8 +368,7 @@ final class AuthStore
 
             $now = $this->now();
             $user['enabled'] = false;
-            $user['deleted_at'] = $now;
-            $user['deleted_by'] = $deletedBy;
+            $user['deleted'] = true;
             $user['updated_at'] = $now;
             $user['updated_by'] = $deletedBy;
             $data['users'][$index] = $user;
@@ -1198,8 +1196,6 @@ final class AuthStore
             'display_name' => (string) ($user['display_name'] ?? ''),
             'enabled' => (bool) ($user['enabled'] ?? false),
             'deleted' => $this->isDeletedUser($user),
-            'deleted_at' => $user['deleted_at'] ?? null,
-            'deleted_by' => $user['deleted_by'] ?? null,
             'permissions' => array_values(array_intersect(self::PERMISSIONS, $permissions)),
             'protected_admin' => $this->isProtectedAdmin($user),
             'credential_count' => count($user['credentials'] ?? []),
@@ -1645,7 +1641,7 @@ final class AuthStore
      */
     private function isDeletedUser(array $user): bool
     {
-        return is_string($user['deleted_at'] ?? null) && trim((string) $user['deleted_at']) !== '';
+        return ($user['deleted'] ?? false) === true;
     }
 
     /**

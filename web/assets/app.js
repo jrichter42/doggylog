@@ -1385,7 +1385,7 @@ async function loadUsers() {
     return `
       <form class="user-row user-edit" data-user-id="${escapeHtml(user.id)}">
         <strong class="user-edit-title">${escapeHtml(user.username || 'Benutzer')}${deleted ? ' (GelÃ¶scht)' : ''}</strong>
-        <span class="muted">${deleted ? `GelÃ¶scht: ${escapeHtml(formatDate(user.deleted_at))}` : `${escapeHtml(String(user.credential_count || 0))} Passkeys`}</span>
+        <span class="muted">${deleted ? `GelÃ¶scht: ${escapeHtml(formatDate(user.updated_at))}` : `${escapeHtml(String(user.credential_count || 0))} Passkeys`}</span>
         <div class="user-edit-fields">
           <label>
             <span class="control-title">Benutzername</span>
