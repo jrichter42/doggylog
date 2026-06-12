@@ -10,16 +10,14 @@ const modes = {
   pulse: sharedModes,
 };
 
-const initialUrl = new URL(window.location.href);
-const initialHash = initialUrl.hash.slice(1);
+const initialHash = window.location.hash.slice(1);
 const initialHashParams = new URLSearchParams(initialHash);
 const initialSetupToken = initialHashParams.get('setup') || '';
 const initialLoginToken = initialHashParams.get('login') || '';
 const hashView = ['records', 'account'].includes(initialHash) ? initialHash : 'measure';
 
 if (initialSetupToken || initialLoginToken) {
-  initialUrl.hash = '';
-  window.history.replaceState({}, document.title, `${initialUrl.pathname}${initialUrl.search}`);
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
 }
 
 const state = {
@@ -312,6 +310,27 @@ async function verifyEmailLogin(token) {
   await refresh();
 }
 
+async function handleAuthFragment() {
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const setupToken = params.get('setup') || '';
+  const loginToken = params.get('login') || '';
+  if (!setupToken && !loginToken) return;
+
+  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+  if (setupToken) {
+    state.setupToken = setupToken;
+    if (state.status === null) {
+      await refresh();
+    } else {
+      renderShell();
+    }
+    return;
+  }
+
+  state.setupToken = '';
+  await verifyEmailLogin(loginToken);
+}
+
 async function refresh() {
   state.status = await api('status');
   renderShell();
@@ -372,13 +391,13 @@ function renderShell() {
 
   els.connectionStatus.textContent = user ? user.display_name || user.username : 'Nicht eingeloggt';
   els.connectionStatus.hidden = !user;
-  els.topTabs.hidden = !user;
+  els.topTabs.hidden = !user || Boolean(setup);
   renderSecurityWarnings();
-  els.authScreen.hidden = Boolean(user);
-  els.workspace.hidden = !user;
+  els.authScreen.hidden = Boolean(user) && !setup;
+  els.workspace.hidden = !user || Boolean(setup);
   els.loginButton.hidden = Boolean(user);
-  els.setupForm.hidden = !setup || Boolean(user);
-  els.loginPanel.hidden = Boolean(setup) && !user;
+  els.setupForm.hidden = !setup;
+  els.loginPanel.hidden = Boolean(setup);
   els.setupInput.value = setup || '';
   const canUseEmailLogin = Boolean(state.status?.mail?.login_enabled);
   const shouldOfferEmailLogin = state.emailLoginOffered || !passkeysAvailable();
@@ -2497,6 +2516,9 @@ els.showDisabledUsers.addEventListener('change', () => {
 hydrateStaticIcons();
 renderMeasurementControls();
 switchView(state.view, false);
+window.addEventListener('hashchange', () => {
+  handleAuthFragment().catch((error) => setMessage(error.message, true));
+});
 
 if (initialLoginToken) {
   verifyEmailLogin(initialLoginToken).catch((error) => setMessage(error.message, true));
