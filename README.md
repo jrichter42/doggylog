@@ -14,6 +14,7 @@ Mobile PHP-Webseite zum Erfassen von Atemfrequenz und Puls eines Hundes.
 
 - Hunde liegen in `web/data/dogs/`, Vitalwerte in `web/data/vitals/`.
 - Auth-, Session- und Setupdaten liegen in `web/var/auth/`.
+- Geloeschte Benutzer bleiben mit `deleted: true` in ihrer `user.json` erhalten. `updated_at` und `updated_by` dokumentieren die Loeschung; Anmeldung und Reaktivierung sind gesperrt.
 - `.htaccess` schuetzt `app/`, `config/`, `data/`, `var/` und `bootstrap_setup.txt` vor direktem Webzugriff.
 
 ## Deploy

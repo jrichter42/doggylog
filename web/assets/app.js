@@ -1378,25 +1378,26 @@ async function loadUsers() {
   if (els.disabledUserCount) els.disabledUserCount.textContent = `(${disabledCount})`;
   if (els.showDisabledUsers) els.showDisabledUsers.checked = state.showDisabledUsers;
   els.userList.innerHTML = visibleUsers.map((user) => {
+    const deleted = user.deleted === true;
     const canManageUsers = user.permissions.includes('manage_users');
-    const permissionLocked = user.protected_admin && canManageUsers;
+    const permissionLocked = deleted || (user.protected_admin && canManageUsers);
     const setupUrl = state.userSetupLinks.get(user.id) || '';
     return `
       <form class="user-row user-edit" data-user-id="${escapeHtml(user.id)}">
-        <strong class="user-edit-title">${escapeHtml(user.username || 'Benutzer')}</strong>
-        <span class="muted">${escapeHtml(String(user.credential_count || 0))} Passkeys</span>
+        <strong class="user-edit-title">${escapeHtml(user.username || 'Benutzer')}${deleted ? ' (GelÃ¶scht)' : ''}</strong>
+        <span class="muted">${deleted ? `GelÃ¶scht: ${escapeHtml(formatDate(user.updated_at))}` : `${escapeHtml(String(user.credential_count || 0))} Passkeys`}</span>
         <div class="user-edit-fields">
           <label>
             <span class="control-title">Benutzername</span>
-            <input name="username" value="${escapeHtml(user.username || '')}" data-user-name-input="${escapeHtml(user.id)}" autocomplete="off" required>
+            <input name="username" value="${escapeHtml(user.username || '')}" data-user-name-input="${escapeHtml(user.id)}" autocomplete="off" required ${deleted ? 'disabled' : ''}>
           </label>
           <label>
             <span class="control-title">Anzeigename</span>
-            <input name="display_name" value="${escapeHtml(user.display_name || '')}" autocomplete="name">
+            <input name="display_name" value="${escapeHtml(user.display_name || '')}" autocomplete="name" ${deleted ? 'disabled' : ''}>
           </label>
           <label>
             <span class="control-title">E-Mail-Adresse</span>
-            <input name="email" type="email" value="${escapeHtml(user.email || '')}" autocomplete="email">
+            <input name="email" type="email" value="${escapeHtml(user.email || '')}" autocomplete="email" ${deleted ? 'disabled' : ''}>
           </label>
         </div>
         <div class="user-row-actions">
@@ -1408,8 +1409,8 @@ async function loadUsers() {
           <button class="secondary-action has-ui-icon" type="button" data-user-create-setup="${escapeHtml(user.id)}" ${user.enabled ? '' : 'disabled'}>
             ${labelWithIcon('link', 'Setup-Link erstellen')}
           </button>
-          <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${user.enabled && user.id === currentUserId ? 'disabled' : ''}>
-            ${labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
+          <button class="${user.enabled ? 'delete-entry' : 'primary'} has-ui-icon user-status-button" type="button" data-user-enabled="${escapeHtml(user.id)}" data-enabled="${user.enabled ? 'true' : 'false'}" ${(deleted || (user.enabled && user.id === currentUserId)) ? 'disabled' : ''}>
+            ${deleted ? labelWithIcon('trash-2', 'GelÃ¶scht') : labelWithIcon(user.enabled ? 'user-x' : 'user-check', user.enabled ? 'Deaktivieren' : 'Aktivieren')}
           </button>
         </div>
         <div class="user-setup-links" data-user-setup-links="${escapeHtml(user.id)}"></div>
