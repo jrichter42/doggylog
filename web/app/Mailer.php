@@ -11,6 +11,7 @@ final class Mailer
     private string $replyTo;
     private string $loginSubject;
     private string $timezone;
+    private int $loginLinkTtlSeconds;
 
     /**
      * @param array<string, mixed> $config
@@ -23,6 +24,10 @@ final class Mailer
         $this->replyTo = $this->cleanHeader((string) ($mail['reply_to'] ?? ''));
         $this->loginSubject = $this->cleanHeader((string) ($mail['login_subject'] ?? 'Login-Link für Doggy Log'));
         $this->timezone = is_string($config['timezone'] ?? null) ? $config['timezone'] : 'UTC';
+        $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+        $this->loginLinkTtlSeconds = is_numeric($auth['login_link_ttl_seconds'] ?? null)
+            ? max(60, min(3600, (int) $auth['login_link_ttl_seconds']))
+            : 600;
         $this->enabled = (bool) ($mail['enabled'] ?? false)
             && filter_var($this->fromAddress, FILTER_VALIDATE_EMAIL) !== false;
     }
@@ -45,13 +50,14 @@ final class Mailer
 
         $name = trim($displayName) !== '' ? trim($displayName) : 'Benutzer';
         $expiresAtDisplay = $this->formatLoginExpiry($expiresAt);
+        $expiresInDisplay = $this->formatLoginTtl();
         $body = implode("\n", [
             'Hallo ' . $name . ',',
             '',
             'hier ist dein Login-Link:',
             $loginUrl,
             '',
-            'Der Link ist einmalig nutzbar und läuft ab:',
+            'Der Link ist einmalig nutzbar und läuft in ' . $expiresInDisplay . ' ab:',
             $expiresAtDisplay,
             '',
             'Falls du keinen Login-Link angefordert hast, kannst du diese Mail ignorieren.',
@@ -112,5 +118,20 @@ final class Mailer
         }
 
         return $date->setTimezone($timezone)->format('d.m.Y \u\m H:i \U\h\r') . ' (' . $timezone->getName() . ')';
+    }
+
+    private function formatLoginTtl(): string
+    {
+        if ($this->loginLinkTtlSeconds % 3600 === 0) {
+            $hours = intdiv($this->loginLinkTtlSeconds, 3600);
+            return $hours . ($hours === 1 ? ' Stunde' : ' Stunden');
+        }
+
+        if ($this->loginLinkTtlSeconds % 60 === 0) {
+            $minutes = intdiv($this->loginLinkTtlSeconds, 60);
+            return $minutes . ($minutes === 1 ? ' Minute' : ' Minuten');
+        }
+
+        return $this->loginLinkTtlSeconds . ($this->loginLinkTtlSeconds === 1 ? ' Sekunde' : ' Sekunden');
     }
 }
