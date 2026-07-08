@@ -1968,7 +1968,7 @@ function renderEntryEditor(entry) {
         <span class="control-title">Zeit</span>
         <div class="record-input-row record-input-row--compact">
           ${icon('clock')}
-          <input type="datetime-local" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
+          <input type="datetime-local" step="1" data-autosave-entry="${escapeHtml(entry._id)}" data-field="measured_at" value="${escapeHtml(dateTimeLocalValue(entry.measured_at || entry._created))}">
         </div>
       </div>
       <div class="choice-block">
@@ -2211,7 +2211,7 @@ function dateTimeLocalValue(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
+  return local.toISOString().slice(0, 19);
 }
 
 function dateTimeLocalToIso(value) {
