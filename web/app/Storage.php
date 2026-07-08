@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace DoggyLog;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use InvalidArgumentException;
 
 final class Storage
@@ -50,10 +52,12 @@ final class Storage
     ];
 
     private string $basePath;
+    private DateTimeZone $timezone;
 
-    public function __construct(string $basePath)
+    public function __construct(string $basePath, string $timezone = 'UTC')
     {
         $this->basePath = rtrim($basePath, '/\\');
+        $this->timezone = new DateTimeZone(in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'UTC');
     }
 
     public function ensureStructure(): void
@@ -437,7 +441,7 @@ final class Storage
         }
 
         if (array_key_exists('measured_at', $normalized) && $normalized['measured_at'] !== '') {
-            $timestamp = strtotime((string) $normalized['measured_at']);
+            $timestamp = $this->parseMeasurementTimestamp((string) $normalized['measured_at']);
             if ($timestamp === false) {
                 throw new InvalidArgumentException('Measurement time is invalid.');
             }
@@ -506,6 +510,28 @@ final class Storage
             @unlink($tmp);
             throw new InvalidArgumentException('Could not write object.');
         }
+    }
+
+    private function parseMeasurementTimestamp(string $value): int|false
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return false;
+        }
+
+        if (preg_match('/(Z|[+-]\d{2}:?\d{2})$/', $value) === 1) {
+            $timestamp = strtotime($value);
+            return $timestamp === false ? false : $timestamp;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, $this->timezone)
+            ?: DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s', $value, $this->timezone);
+        if ($date === false) {
+            $timestamp = strtotime($value);
+            return $timestamp === false ? false : $timestamp;
+        }
+
+        return $date->getTimestamp();
     }
 
     /**

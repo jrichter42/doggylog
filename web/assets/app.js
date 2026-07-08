@@ -2126,7 +2126,7 @@ async function saveEntryEdit(id) {
     return [input.dataset.field, value];
   }));
   const object = {
-    measured_at: values.measured_at,
+    measured_at: dateTimeLocalToIso(values.measured_at),
     dog_id: values.dog_id || '',
     mode: values.mode,
     location_id: values.location_id,
@@ -2212,6 +2212,12 @@ function dateTimeLocalValue(value) {
   if (Number.isNaN(date.getTime())) return '';
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
   return local.toISOString().slice(0, 16);
+}
+
+function dateTimeLocalToIso(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
 
 function modeLabel(type, value) {

@@ -32,7 +32,7 @@ ini_set('display_errors', '0');
 Http::enforceProductionSecurity($config);
 Http::configureSession();
 
-$storage = new Storage(DOGGYLOG_BASE_PATH);
+$storage = new Storage(DOGGYLOG_BASE_PATH, (string) $config['timezone']);
 $storage->ensureStructure();
 $auth = new AuthStore(DOGGYLOG_BASE_PATH, $config);
 $mailer = new Mailer($config);
