@@ -245,7 +245,19 @@ final class Storage
             throw new StorageConflictException('Object was changed by someone else.', $current);
         }
 
-        $updated = array_merge($current, $this->normalizePayload($type, $payload));
+        $normalized = $this->normalizePayload($type, $payload);
+        $hasChanges = false;
+        foreach ($normalized as $field => $value) {
+            if (($current[$field] ?? null) != $value) {
+                $hasChanges = true;
+                break;
+            }
+        }
+        if (!$hasChanges) {
+            return $current;
+        }
+
+        $updated = array_merge($current, $normalized);
         if ($type === 'vitals' && array_key_exists('notes', $payload)) {
             unset($updated['comment']);
         }
